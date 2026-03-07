@@ -1,0 +1,33 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.app-header {
+  text-align: center;
+}
+
+.app-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.subtitle {
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.message {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  background: #e0e7ff;
+  border-radius: 0.5rem;
+  color: #3730a3;
+}
+
+.results-count {
+  color: #666;
+  font-size: 0.9rem;
+}
