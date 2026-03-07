@@ -1,0 +1,7 @@
+[project]
+name = "familylens"
+version = "0.1.0"
+description = "FamilyLens is a local-first intelligent photo search application that allows users to search their personal photo library using natural language queries."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
