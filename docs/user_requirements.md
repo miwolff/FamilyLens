@@ -22,3 +22,4 @@
 - Must run on a MacBook Air with 8 GB RAM (testing) and a PC with 8 GB GPU (production, ~30,000 photos)
 - Supported image formats: JPEG and PNG
 - Stack: CLIP ViT-B/32 (sentence-transformers), Qdrant, FastAPI, React (Vite + nginx)
+
