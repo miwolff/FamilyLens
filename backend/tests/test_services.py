@@ -175,11 +175,49 @@ class TestSearchRouter:
 class TestIndexRouter:
     """Tests for the index API endpoint."""
 
+    def setup_method(self):
+        """Reset index router state before each test."""
+        from app.routers import index as index_module
+
+        if index_module._run_lock.locked():
+            index_module._run_lock.release()
+        index_module._cancel_event.clear()
+        index_module._progress.update(
+            {
+                "status": "idle",
+                "current": 0,
+                "total": 0,
+                "indexed": 0,
+                "skipped": 0,
+                "errors": 0,
+                "started_at": 0.0,
+                "elapsed_seconds": 0.0,
+                "eta_seconds": None,
+                "result": None,
+            }
+        )
+
     @patch("app.services.clip_service._model", new=MagicMock())
     @patch("app.services.qdrant_service.get_client")
     @patch("app.services.clip_service.get_model")
-    def test_index_missing_folder_returns_error(self, mock_get_model, mock_get_client):
-        """Indexing a nonexistent folder returns an error."""
+    def test_status_returns_idle_initially(self, mock_get_model, mock_get_client):
+        """GET /api/index/status returns idle when no run has started."""
+        from fastapi.testclient import TestClient
+
+        from app.main import app
+
+        client = TestClient(app)
+        response = client.get("/api/index/status")
+        assert response.status_code == 200
+        assert response.json()["status"] == "idle"
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_index_missing_folder_returns_running_then_error(
+        self, mock_get_model, mock_get_client
+    ):
+        """POST returns running immediately; status shows error after bg task."""
         from fastapi.testclient import TestClient
 
         from app.main import app
@@ -189,4 +227,49 @@ class TestIndexRouter:
             "/api/index",
             json={"folder": "/nonexistent/folder"},
         )
-        assert response.status_code == 500
+        assert response.status_code == 200
+        assert response.json()["status"] == "running"
+
+        # Background task runs synchronously in TestClient before returning,
+        # so status is already updated by the time we poll.
+        status_response = client.get("/api/index/status")
+        assert status_response.json()["status"] == "error"
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_index_returns_409_when_already_running(
+        self, mock_get_model, mock_get_client
+    ):
+        """POST /api/index returns 409 when indexing is already in progress."""
+        from fastapi.testclient import TestClient
+
+        from app.main import app
+        from app.routers import index as index_module
+
+        index_module._run_lock.acquire()
+        index_module._progress["status"] = "running"
+        try:
+            client = TestClient(app)
+            response = client.post("/api/index", json={})
+            assert response.status_code == 409
+            assert "already running" in response.json()["detail"].lower()
+        finally:
+            index_module._run_lock.release()
+            index_module._progress["status"] = "idle"
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_cancel_when_idle_returns_current_status(
+        self, mock_get_model, mock_get_client
+    ):
+        """POST /api/index/cancel when idle returns the current status."""
+        from fastapi.testclient import TestClient
+
+        from app.main import app
+
+        client = TestClient(app)
+        response = client.post("/api/index/cancel")
+        assert response.status_code == 200
+        assert response.json()["status"] == "idle"

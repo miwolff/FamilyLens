@@ -1,0 +1,123 @@
+.index-progress {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 12px auto;
+  max-width: 700px;
+  font-size: 14px;
+}
+
+.index-progress--complete {
+  border-color: #28a745;
+  background: #f0fff4;
+}
+
+.index-progress--error {
+  border-color: #dc3545;
+  background: #fff5f5;
+}
+
+.index-progress--cancelled {
+  border-color: #6c757d;
+  background: #f8f9fa;
+}
+
+.index-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.index-progress-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.index-progress--complete .index-progress-title {
+  color: #28a745;
+}
+
+.index-progress--error .index-progress-title {
+  color: #dc3545;
+}
+
+.index-progress--cancelled .index-progress-title {
+  color: #6c757d;
+}
+
+.index-progress-bar-wrapper {
+  width: 100%;
+  height: 8px;
+  background: #dee2e6;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.index-progress-bar-fill {
+  height: 100%;
+  background: #007bff;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.index-progress--complete .index-progress-bar-fill {
+  background: #28a745;
+}
+
+.index-progress--cancelled .index-progress-bar-fill {
+  background: #6c757d;
+}
+
+.index-progress-timing {
+  display: flex;
+  justify-content: space-between;
+  color: #555;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.index-progress-time {
+  color: #888;
+}
+
+.index-progress-counts {
+  display: flex;
+  gap: 16px;
+  color: #666;
+  font-size: 13px;
+}
+
+.index-progress-errors {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.index-progress-total {
+  margin-left: auto;
+  color: #28a745;
+  font-weight: 600;
+}
+
+.btn-cancel {
+  padding: 4px 12px;
+  font-size: 13px;
+  background: transparent;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: #dc3545;
+  color: #fff;
+}
+
+.btn-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
