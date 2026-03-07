@@ -45,10 +45,7 @@ def index_photos(request: IndexRequest | None = None) -> IndexResponse:
     each with CLIP, and upserts embeddings into Qdrant.
     Already-indexed files are skipped.
     """
-    folder = Path(
-        request.folder if request and request.folder
-        else settings.photos_dir
-    )
+    folder = Path(request.folder if request and request.folder else settings.photos_dir)
     if not folder.is_dir():
         raise ValueError(f"Folder not found: {folder}")
 
@@ -72,9 +69,7 @@ def index_photos(request: IndexRequest | None = None) -> IndexResponse:
 
         try:
             embedding = clip_service.encode_image(img_path)
-            batch.append(
-                (relative_path, img_path.name, embedding)
-            )
+            batch.append((relative_path, img_path.name, embedding))
             indexed += 1
 
             if len(batch) >= settings.index_batch_size:
@@ -93,7 +88,9 @@ def index_photos(request: IndexRequest | None = None) -> IndexResponse:
     total = qdrant_service.get_indexed_count()
     logger.info(
         "Indexing complete: %d indexed, %d skipped, %d errors",
-        indexed, skipped, errors,
+        indexed,
+        skipped,
+        errors,
     )
 
     return IndexResponse(

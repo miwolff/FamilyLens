@@ -16,9 +16,7 @@ class SearchRequest(BaseModel):
     """Request body for the search endpoint."""
 
     query: str
-    limit: int = Field(
-        default=settings.search_default_limit, ge=1, le=100
-    )
+    limit: int = Field(default=settings.search_default_limit, ge=1, le=100)
 
 
 class SearchResult(BaseModel):
@@ -44,9 +42,7 @@ def search_photos(request: SearchRequest) -> SearchResponse:
     cosine similarity search in Qdrant.
     """
     query_vector = clip_service.encode_text(request.query)
-    results = qdrant_service.search(
-        query_vector=query_vector, limit=request.limit
-    )
+    results = qdrant_service.search(query_vector=query_vector, limit=request.limit)
     return SearchResponse(
         query=request.query,
         results=[SearchResult(**r) for r in results],
@@ -65,14 +61,10 @@ def serve_photo(file_path: str) -> FileResponse:
 
     # Path traversal protection
     if not str(requested).startswith(str(photos_root)):
-        raise HTTPException(
-            status_code=403, detail="Access denied"
-        )
+        raise HTTPException(status_code=403, detail="Access denied")
 
     if not requested.is_file():
-        raise HTTPException(
-            status_code=404, detail="Photo not found"
-        )
+        raise HTTPException(status_code=404, detail="Photo not found")
 
     return FileResponse(
         path=requested,

@@ -80,6 +80,23 @@ Install dependencies with **uv**:
 uv sync
 ```
 
+**Code quality:**
+
+Format code with ruff:
+```bash
+uv run ruff format backend/
+```
+
+Run linting checks:
+```bash
+uv run ruff check backend/
+```
+
+Auto-fix linting issues:
+```bash
+uv run ruff check backend/ --fix
+```
+
 Run tests (uses mocked ML dependencies, runs in ~4s):
 
 ```bash
