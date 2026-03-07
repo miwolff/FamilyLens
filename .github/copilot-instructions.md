@@ -4,7 +4,7 @@ FamilyLens is a **local-first intelligent photo search application** that lets u
 
 ## User Requirements
 
-See [docs/user_requirements.md](../docs/user_requirements.md) for detailed user requirements. If you get new requirements from the user, please add them to that file and check if all requirements are consistent. Check for updates before starting work on any new features. 
+See [docs/user_requirements.md](../docs/user_requirements.md) for detailed user requirements. If you get new requirements or new requests, always add them to that file and check if all requirements are consistent. Check for updates before starting work on any new features. 
 
 ## Tooling
 
