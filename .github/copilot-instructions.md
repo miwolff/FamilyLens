@@ -2,6 +2,10 @@
 
 FamilyLens is a **local-first intelligent photo search application** that lets users search their personal photo library using natural language queries.
 
+## User Requirements
+
+See [docs/user_requirements.md](../docs/user_requirements.md) for detailed user requirements. If you get new requirements from the user, please add them to that file and check if all requirements are consistent. Check for updates before starting work on any new features. 
+
 ## Tooling
 
 This project uses [uv](https://docs.astral.sh/uv/) for Python package management. Requires **Python 3.14+**.
