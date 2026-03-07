@@ -1,4 +1,3 @@
-import hashlib
 import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -82,12 +81,8 @@ class TestClipService:
         assert isinstance(result, list)
         assert len(result) == 512
         mock_pil.open.assert_called_once_with(Path("/test/photo.jpg"))
-        mock_pil.open.return_value.convert.assert_called_once_with(
-            "RGB"
-        )
-        mock_model.encode.assert_called_once_with(
-            mock_img, normalize_embeddings=True
-        )
+        mock_pil.open.return_value.convert.assert_called_once_with("RGB")
+        mock_model.encode.assert_called_once_with(mock_img, normalize_embeddings=True)
 
         clip_service._model = None
 
@@ -133,9 +128,7 @@ class TestQdrantService:
         mock_client = MagicMock()
         mock_coll = MagicMock()
         mock_coll.name = "photos"
-        mock_client.get_collections.return_value.collections = [
-            mock_coll
-        ]
+        mock_client.get_collections.return_value.collections = [mock_coll]
         mock_get.return_value = mock_client
 
         ensure_collection()
@@ -168,9 +161,7 @@ class TestSearchRouter:
     @patch("app.services.clip_service._model", new=MagicMock())
     @patch("app.services.qdrant_service.get_client")
     @patch("app.services.clip_service.get_model")
-    def test_serve_photo_path_traversal(
-        self, mock_get_model, mock_get_client
-    ):
+    def test_serve_photo_path_traversal(self, mock_get_model, mock_get_client):
         """Path traversal attempts are blocked."""
         from fastapi.testclient import TestClient
 
@@ -187,9 +178,7 @@ class TestIndexRouter:
     @patch("app.services.clip_service._model", new=MagicMock())
     @patch("app.services.qdrant_service.get_client")
     @patch("app.services.clip_service.get_model")
-    def test_index_missing_folder_returns_error(
-        self, mock_get_model, mock_get_client
-    ):
+    def test_index_missing_folder_returns_error(self, mock_get_model, mock_get_client):
         """Indexing a nonexistent folder returns an error."""
         from fastapi.testclient import TestClient
 

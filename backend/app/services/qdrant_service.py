@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import uuid
-from pathlib import Path
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -36,9 +35,7 @@ def get_client() -> QdrantClient:
 def ensure_collection() -> None:
     """Create the photos collection if it does not exist."""
     client = get_client()
-    collections = [
-        c.name for c in client.get_collections().collections
-    ]
+    collections = [c.name for c in client.get_collections().collections]
     if settings.collection_name not in collections:
         client.create_collection(
             collection_name=settings.collection_name,
@@ -47,9 +44,7 @@ def ensure_collection() -> None:
                 distance=Distance.COSINE,
             ),
         )
-        logger.info(
-            "Created collection '%s'", settings.collection_name
-        )
+        logger.info("Created collection '%s'", settings.collection_name)
     else:
         logger.info(
             "Collection '%s' already exists",
@@ -112,9 +107,7 @@ def upsert_embeddings(
     )
 
 
-def search(
-    query_vector: list[float], limit: int
-) -> list[dict]:
+def search(query_vector: list[float], limit: int) -> list[dict]:
     """Search for similar images by query vector.
 
     Returns list of dicts with file_path, filename, score.
@@ -128,8 +121,8 @@ def search(
     )
     return [
         {
-            "file_path": hit.payload.get("file_path", ""),
-            "filename": hit.payload.get("filename", ""),
+            "file_path": hit.payload.get("file_path", "") if hit.payload else "",
+            "filename": hit.payload.get("filename", "") if hit.payload else "",
             "score": hit.score,
         }
         for hit in results.points
@@ -140,4 +133,4 @@ def get_indexed_count() -> int:
     """Return number of indexed photos."""
     client = get_client()
     info = client.get_collection(settings.collection_name)
-    return info.points_count
+    return info.points_count or 0
