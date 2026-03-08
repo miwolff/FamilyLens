@@ -1,5 +1,8 @@
 FROM python:3.13-slim
 
+# Build argument for model selection
+ARG CLIP_MODEL_NAME=clip-ViT-B-32
+
 WORKDIR /app
 
 # Install system dependencies for Pillow
@@ -15,11 +18,19 @@ RUN pip install --no-cache-dir \
     torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir .
 
+COPY scripts/ scripts/
+
+# Create app cache directory and download CLIP model during build
+RUN mkdir -p /app/.cache && \
+    TRANSFORMERS_CACHE=/app/.cache \
+    HF_HOME=/app/.cache \
+    FAMILYLENS_CLIP_MODEL_NAME=$CLIP_MODEL_NAME \
+    python -m scripts.download_models
+
 COPY app/ app/
 
 # Run as non-root user
 RUN adduser --system --no-create-home appuser && \
-    mkdir -p /app/.cache && \
     chown appuser /app/.cache
 USER appuser
 
