@@ -141,7 +141,7 @@ def delete_by_paths(paths: list[str]) -> int:
     ids = [file_point_id(p) for p in paths]
     client.delete(
         collection_name=settings.collection_name,
-        points_selector=PointIdsList(points=ids),
+        points_selector=PointIdsList(points=[str(id) for id in ids]),
     )
     return len(paths)
 
