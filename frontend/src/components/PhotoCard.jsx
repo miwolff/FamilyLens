@@ -1,8 +1,11 @@
+import PropTypes from "prop-types";
 import "./PhotoCard.css";
 
 function PhotoCard({ result }) {
   const scorePercent = (result.score * 100).toFixed(1);
-  const imageUrl = `/api/photos/${encodeURIComponent(result.file_path)}`;
+  const imageUrl =
+    "/api/photos/" +
+    result.file_path.split("/").map(encodeURIComponent).join("/");
 
   return (
     <div className="photo-card">
@@ -25,3 +28,11 @@ function PhotoCard({ result }) {
 }
 
 export default PhotoCard;
+
+PhotoCard.propTypes = {
+  result: PropTypes.shape({
+    file_path: PropTypes.string.isRequired,
+    filename: PropTypes.string.isRequired,
+    score: PropTypes.number.isRequired,
+  }).isRequired,
+};

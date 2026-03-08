@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PropTypes from "prop-types";
 import "./SearchBar.css";
 
 function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupChange }) {
@@ -48,3 +49,12 @@ function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupCha
 }
 
 export default SearchBar;
+
+SearchBar.propTypes = {
+  onSearch: PropTypes.func.isRequired,
+  onIndex: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired,
+  indexing: PropTypes.bool.isRequired,
+  cleanup: PropTypes.bool.isRequired,
+  onCleanupChange: PropTypes.func.isRequired,
+};

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import PhotoCard from "./PhotoCard";
 import "./PhotoGrid.css";
 
@@ -20,3 +21,14 @@ function PhotoGrid({ results, loading }) {
 }
 
 export default PhotoGrid;
+
+PhotoGrid.propTypes = {
+  results: PropTypes.arrayOf(
+    PropTypes.shape({
+      file_path: PropTypes.string.isRequired,
+      filename: PropTypes.string.isRequired,
+      score: PropTypes.number.isRequired,
+    })
+  ).isRequired,
+  loading: PropTypes.bool.isRequired,
+};

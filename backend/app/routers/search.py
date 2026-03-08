@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -15,7 +16,7 @@ router = APIRouter()
 class SearchRequest(BaseModel):
     """Request body for the search endpoint."""
 
-    query: str
+    query: str = Field(..., min_length=1, max_length=500)
     limit: int = Field(default=settings.search_default_limit, ge=1, le=100)
 
 
@@ -60,15 +61,16 @@ def serve_photo(file_path: str) -> FileResponse:
     requested = (photos_root / file_path).resolve()
 
     # Path traversal protection
-    if not str(requested).startswith(str(photos_root)):
+    if not requested.is_relative_to(photos_root):
         raise HTTPException(status_code=403, detail="Access denied")
 
     if not requested.is_file():
         raise HTTPException(status_code=404, detail="Photo not found")
 
+    media_type, _ = mimetypes.guess_type(requested)
     return FileResponse(
         path=requested,
-        media_type="image/jpeg",
+        media_type=media_type or "application/octet-stream",
     )
 
 
