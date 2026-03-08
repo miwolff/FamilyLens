@@ -23,3 +23,8 @@
 - Supported image formats: JPEG and PNG
 - Stack: CLIP ViT-B/32 (sentence-transformers), Qdrant, FastAPI, React (Vite + nginx)
 
+### Index Management
+
+- Users can remove stale index entries (files no longer on disk) via a "Remove deleted files from index" checkbox on the Index Photos button. This is useful when changing the photo directory path or after deleting photos from disk.
+- Users can index photos from up to 5 separate directories by setting `PHOTOS_DIR`, `PHOTOS_DIR_2` … `PHOTOS_DIR_5` in `.env`. Extra directories are mounted under `/photos_N` in the container and indexed together with the first photos folder.
+
