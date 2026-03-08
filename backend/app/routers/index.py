@@ -12,7 +12,7 @@ from app.services import clip_service, qdrant_service
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+SUPPORTED_EXTENSIONS = clip_service.SUPPORTED_IMAGE_EXTENSIONS
 
 # ---------------------------------------------------------------------------
 # Module-level progress state, shared between the background worker and the

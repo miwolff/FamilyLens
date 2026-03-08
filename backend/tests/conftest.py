@@ -14,6 +14,7 @@ _HEAVY_MODULES = [
     "torchvision",
     "PIL",
     "PIL.Image",
+    "rawpy",
     "sentence_transformers",
 ]
 

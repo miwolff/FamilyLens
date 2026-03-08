@@ -15,4 +15,9 @@ wheels/
 # Local photo files for testing
 *.jpg
 *.jpeg
+*.JPG
+*.JPEG
 *.png
+*.PNG
+*.dng
+*.NEF
