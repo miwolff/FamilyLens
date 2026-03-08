@@ -71,8 +71,6 @@ class TestClipService:
         mock_st_class.return_value = mock_model
 
         mock_img = MagicMock()
-        # encode_image uses a context manager: `with Image.open(...) as img:`
-        # so .convert() is called on __enter__'s return value
         mock_pil.open.return_value.__enter__.return_value.convert.return_value = (
             mock_img
         )
@@ -87,6 +85,40 @@ class TestClipService:
             "RGB"
         )
         mock_model.encode.assert_called_once_with(mock_img, normalize_embeddings=True)
+        mock_img.close.assert_called_once_with()
+
+        clip_service._model = None
+
+    @patch("app.services.clip_service.rawpy")
+    @patch("app.services.clip_service.Image")
+    @patch("app.services.clip_service.SentenceTransformer")
+    def test_encode_raw_image(self, mock_st_class, mock_image, mock_rawpy):
+        """encode_image decodes RAW images before encoding."""
+        import numpy as np
+        from app.services import clip_service
+
+        clip_service._model = None
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.random.randn(512)
+        mock_st_class.return_value = mock_model
+
+        mock_img = MagicMock()
+        mock_image.fromarray.return_value.convert.return_value = mock_img
+        mock_raw = MagicMock()
+        mock_raw.postprocess.return_value = "rgb-data"
+        mock_rawpy.imread.return_value.__enter__.return_value = mock_raw
+
+        clip_service.load_model()
+        result = clip_service.encode_image(Path("/test/photo.dng"))
+
+        assert isinstance(result, list)
+        assert len(result) == 512
+        mock_rawpy.imread.assert_called_once_with("/test/photo.dng")
+        mock_raw.postprocess.assert_called_once_with()
+        mock_image.fromarray.assert_called_once_with("rgb-data")
+        mock_image.fromarray.return_value.convert.assert_called_once_with("RGB")
+        mock_model.encode.assert_called_once_with(mock_img, normalize_embeddings=True)
+        mock_img.close.assert_called_once_with()
 
         clip_service._model = None
 
@@ -305,6 +337,25 @@ class TestIndexRouter:
         assert response.status_code == 200
         assert response.json()["status"] == "idle"
 
+    def test_discover_images_includes_raw_formats(self):
+        """_discover_images finds DNG and NEF files alongside standard images."""
+        import tempfile
+
+        from app.routers.index import _discover_images
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for name in ["photo.jpg", "scan.DNG", "negative.nef", "note.txt"]:
+                (root / name).write_bytes(b"test")
+
+            results = _discover_images(root)
+
+        assert {path.name for path in results} == {
+            "photo.jpg",
+            "scan.DNG",
+            "negative.nef",
+        }
+
 
 class TestSearchRouterFull:
     """Additional tests for the search and photo-serving endpoints."""
@@ -412,6 +463,43 @@ class TestSearchRouterFull:
                 response = client.get("/api/photos/test.png")
             assert response.status_code == 200
             assert "image/png" in response.headers["content-type"]
+        finally:
+            os.unlink(tmp_file)
+            os.rmdir(tmpdir)
+
+    @patch("app.services.clip_service.render_preview")
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_serve_photo_raw_preview_content_type(
+        self,
+        mock_get_model,
+        mock_get_client,
+        mock_render_preview,
+    ):
+        """GET /api/photos/<path> returns a JPEG preview for RAW files."""
+        import os
+        import tempfile
+        from unittest.mock import patch as mock_patch
+
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        mock_render_preview.return_value = b"jpeg-preview"
+
+        tmpdir = tempfile.mkdtemp()
+        tmp_file = os.path.join(tmpdir, "test.nef")
+        try:
+            with open(tmp_file, "wb") as f:
+                f.write(b"RAWDATA")
+            with mock_patch("app.routers.search.settings") as mock_settings:
+                mock_settings.photos_dir = tmpdir
+                client = TestClient(app)
+                response = client.get("/api/photos/test.nef")
+            assert response.status_code == 200
+            assert response.content == b"jpeg-preview"
+            assert "image/jpeg" in response.headers["content-type"]
+            mock_render_preview.assert_called_once_with(Path(tmp_file))
         finally:
             os.unlink(tmp_file)
             os.rmdir(tmpdir)

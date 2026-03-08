@@ -3,7 +3,7 @@ import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -51,7 +51,7 @@ def search_photos(request: SearchRequest) -> SearchResponse:
 
 
 @router.get("/photos/{file_path:path}")
-def serve_photo(file_path: str) -> FileResponse:
+def serve_photo(file_path: str) -> Response:
     """Serve a photo file from the photos directory.
 
     Includes path traversal protection to prevent
@@ -66,6 +66,17 @@ def serve_photo(file_path: str) -> FileResponse:
 
     if not requested.is_file():
         raise HTTPException(status_code=404, detail="Photo not found")
+
+    if clip_service.is_raw_image_path(requested):
+        try:
+            preview = clip_service.render_preview(requested)
+        except Exception as exc:
+            logger.exception("Failed to render RAW preview for %s", requested)
+            raise HTTPException(
+                status_code=500,
+                detail="Unable to render RAW photo preview",
+            ) from exc
+        return Response(content=preview, media_type="image/jpeg")
 
     media_type, _ = mimetypes.guess_type(requested)
     return FileResponse(

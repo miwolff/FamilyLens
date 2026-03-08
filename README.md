@@ -160,4 +160,5 @@ npm run dev
 
 ## Supported Formats
 
-JPEG (`.jpg`, `.jpeg`) and PNG (`.png`)
+JPEG (`.jpg`, `.jpeg`), PNG (`.png`), Adobe DNG (`.dng`), and Nikon
+NEF (`.nef`)

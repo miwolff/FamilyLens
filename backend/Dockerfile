@@ -8,7 +8,7 @@ WORKDIR /app
 # Install system dependencies for Pillow
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libjpeg62-turbo-dev libpng-dev && \
+    build-essential libjpeg62-turbo-dev libpng-dev libraw-dev && \
     rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./
