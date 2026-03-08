@@ -21,6 +21,7 @@ Three Docker containers orchestrated via Docker Compose:
 
 ### Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) to create .venv if needed for development
 
 ### Setup
 
@@ -109,6 +110,12 @@ FamilyLens/
 
 ### Backend (Python)
 
+The following commands are all run in the `backend` folder.
+
+```bash
+cd backend
+```
+
 Install dependencies with **uv**:
 
 ```bash
@@ -119,23 +126,23 @@ uv sync
 
 Format code with ruff:
 ```bash
-uv run ruff format backend/
+uv run ruff format
 ```
 
 Run linting checks:
 ```bash
-uv run ruff check backend/
+uv run ruff check
 ```
 
 Auto-fix linting issues:
 ```bash
-uv run ruff check backend/ --fix
+uv run ruff check --fix
 ```
 
 Run tests (uses mocked ML dependencies, runs in ~4s):
 
 ```bash
-uv run pytest backend/tests/ --rootdir backend/ -v
+uv run pytest tests/ -v
 ```
 
 ### Frontend (React)
