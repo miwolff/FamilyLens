@@ -17,7 +17,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ${PHOTOS_DIR:-./photos}:/photos:ro
+      - ${PHOTOS_DIR:-./data/photos}:/photos/1:ro
+      - ${PHOTOS_DIR_2:-./data/photos_2}:/photos/2:ro
+      - ${PHOTOS_DIR_3:-./data/photos_3}:/photos/3:ro
+      - ${PHOTOS_DIR_4:-./data/photos_4}:/photos/4:ro
+      - ${PHOTOS_DIR_5:-./data/photos_5}:/photos/5:ro
     environment:
       - FAMILYLENS_QDRANT_HOST=qdrant
       - FAMILYLENS_QDRANT_PORT=6333
