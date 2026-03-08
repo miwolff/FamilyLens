@@ -12,5 +12,7 @@ wheels/
 # Environment variables
 .env
 
-# Local photo directory for testing
-photos/
+# Local photo files for testing
+*.jpg
+*.jpeg
+*.png

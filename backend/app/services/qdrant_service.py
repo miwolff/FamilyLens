@@ -5,6 +5,7 @@ import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
+    PointIdsList,
     PointStruct,
     VectorParams,
 )
@@ -127,6 +128,22 @@ def search(query_vector: list[float], limit: int) -> list[dict]:
         }
         for hit in results.points
     ]
+
+
+def delete_by_paths(paths: list[str]) -> int:
+    """Delete indexed entries for the given file paths.
+
+    Returns the number of paths submitted for deletion.
+    """
+    if not paths:
+        return 0
+    client = get_client()
+    ids = [file_point_id(p) for p in paths]
+    client.delete(
+        collection_name=settings.collection_name,
+        points_selector=PointIdsList(points=ids),
+    )
+    return len(paths)
 
 
 def get_indexed_count() -> int:
