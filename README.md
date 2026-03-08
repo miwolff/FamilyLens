@@ -70,6 +70,41 @@ curl -X POST http://localhost:8000/api/search \
 curl -X POST http://localhost:8000/api/index
 ```
 
+## Project Structure
+
+```
+FamilyLens/
+├── docker-compose.yml          # Container orchestration
+├── README.md
+├── backend/
+│   ├── pyproject.toml          # Python dependencies & build config
+│   ├── Dockerfile              # FastAPI backend container
+│   ├── .dockerignore           # Excludes tests, cache, etc. from Docker build
+│   ├── pytest.ini
+│   ├── app/
+│   │   ├── main.py            # FastAPI app, lifespan, endpoints
+│   │   ├── config.py          # Environment configuration
+│   │   ├── routers/           # API endpoints (index, search)
+│   │   └── services/          # CLIP & Qdrant clients
+│   └── tests/
+├── frontend/
+│   ├── Dockerfile              # React + nginx container
+│   ├── .dockerignore
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── components/         # SearchBar, PhotoGrid, etc.
+│   │   └── index.css
+│   ├── package.json
+│   ├── vite.config.js
+│   └── nginx.conf             # Reverse proxy config
+└── photos/                     # Local photos directory (mounted at runtime)
+```
+
+**Key notes:**
+- `pyproject.toml` is in the `backend/` folder (along with the FastAPI code)
+- Each `Dockerfile` has a matching `.dockerignore` to exclude unnecessary files
+- Docker Compose builds backend from `./backend` context, frontend from `./frontend` context
+
 ## Development
 
 ### Backend (Python)

@@ -31,7 +31,8 @@ def get_model() -> SentenceTransformer:
 def encode_image(image_path: Path) -> list[float]:
     """Encode a single image file to a CLIP embedding vector."""
     model = get_model()
-    image = Image.open(image_path).convert("RGB")
+    with Image.open(image_path) as img:
+        image = img.convert("RGB")
     embedding = model.encode(image, normalize_embeddings=True)
     return embedding.tolist()
 

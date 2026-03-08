@@ -40,7 +40,6 @@ class TestClipService:
     def test_encode_text(self, mock_st_class):
         """encode_text returns a list of floats."""
         import numpy as np
-
         from app.services import clip_service
 
         clip_service._model = None
@@ -64,7 +63,6 @@ class TestClipService:
     def test_encode_image(self, mock_st_class, mock_pil):
         """encode_image opens image, converts to RGB, encodes."""
         import numpy as np
-
         from app.services import clip_service
 
         clip_service._model = None
@@ -73,7 +71,11 @@ class TestClipService:
         mock_st_class.return_value = mock_model
 
         mock_img = MagicMock()
-        mock_pil.open.return_value.convert.return_value = mock_img
+        # encode_image uses a context manager: `with Image.open(...) as img:`
+        # so .convert() is called on __enter__'s return value
+        mock_pil.open.return_value.__enter__.return_value.convert.return_value = (
+            mock_img
+        )
 
         clip_service.load_model()
         result = clip_service.encode_image(Path("/test/photo.jpg"))
@@ -81,7 +83,9 @@ class TestClipService:
         assert isinstance(result, list)
         assert len(result) == 512
         mock_pil.open.assert_called_once_with(Path("/test/photo.jpg"))
-        mock_pil.open.return_value.convert.assert_called_once_with("RGB")
+        mock_pil.open.return_value.__enter__.return_value.convert.assert_called_once_with(
+            "RGB"
+        )
         mock_model.encode.assert_called_once_with(mock_img, normalize_embeddings=True)
 
         clip_service._model = None
@@ -194,9 +198,8 @@ class TestSearchRouter:
     @patch("app.services.clip_service.get_model")
     def test_serve_photo_path_traversal(self, mock_get_model, mock_get_client):
         """Path traversal attempts are blocked."""
-        from fastapi.testclient import TestClient
-
         from app.main import app
+        from fastapi.testclient import TestClient
 
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/photos/../../etc/passwd")
@@ -234,9 +237,8 @@ class TestIndexRouter:
     @patch("app.services.clip_service.get_model")
     def test_status_returns_idle_initially(self, mock_get_model, mock_get_client):
         """GET /api/index/status returns idle when no run has started."""
-        from fastapi.testclient import TestClient
-
         from app.main import app
+        from fastapi.testclient import TestClient
 
         client = TestClient(app)
         response = client.get("/api/index/status")
@@ -250,9 +252,8 @@ class TestIndexRouter:
         self, mock_get_model, mock_get_client
     ):
         """POST returns running immediately; status shows error after bg task."""
-        from fastapi.testclient import TestClient
-
         from app.main import app
+        from fastapi.testclient import TestClient
 
         client = TestClient(app, raise_server_exceptions=False)
         response = client.post(
@@ -274,10 +275,9 @@ class TestIndexRouter:
         self, mock_get_model, mock_get_client
     ):
         """POST /api/index returns 409 when indexing is already in progress."""
-        from fastapi.testclient import TestClient
-
         from app.main import app
         from app.routers import index as index_module
+        from fastapi.testclient import TestClient
 
         index_module._run_lock.acquire()
         index_module._progress["status"] = "running"
@@ -297,11 +297,162 @@ class TestIndexRouter:
         self, mock_get_model, mock_get_client
     ):
         """POST /api/index/cancel when idle returns the current status."""
-        from fastapi.testclient import TestClient
-
         from app.main import app
+        from fastapi.testclient import TestClient
 
         client = TestClient(app)
         response = client.post("/api/index/cancel")
         assert response.status_code == 200
         assert response.json()["status"] == "idle"
+
+
+class TestSearchRouterFull:
+    """Additional tests for the search and photo-serving endpoints."""
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_search_returns_results(self, mock_get_model, mock_get_client):
+        """POST /api/search returns formatted results."""
+        import numpy as np
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.zeros(512)
+        mock_get_model.return_value = mock_model
+
+        mock_hit = MagicMock()
+        mock_hit.payload = {"file_path": "beach.jpg", "filename": "beach.jpg"}
+        mock_hit.score = 0.9
+        mock_client = MagicMock()
+        mock_client.query_points.return_value.points = [mock_hit]
+        mock_get_client.return_value = mock_client
+
+        client = TestClient(app)
+        response = client.post("/api/search", json={"query": "beach sunset"})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["query"] == "beach sunset"
+        assert len(data["results"]) == 1
+        assert data["results"][0]["file_path"] == "beach.jpg"
+        assert data["results"][0]["score"] == 0.9
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_search_empty_query_rejected(self, mock_get_model, mock_get_client):
+        """POST /api/search rejects an empty query string."""
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        response = client.post("/api/search", json={"query": ""})
+        assert response.status_code == 422
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_search_query_too_long_rejected(self, mock_get_model, mock_get_client):
+        """POST /api/search rejects queries exceeding 500 characters."""
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        response = client.post("/api/search", json={"query": "x" * 501})
+        assert response.status_code == 422
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_serve_photo_jpeg_content_type(self, mock_get_model, mock_get_client):
+        """GET /api/photos/<path> returns image/jpeg for .jpg files."""
+        import os
+        import tempfile
+        from unittest.mock import patch as mock_patch
+
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        tmpdir = tempfile.mkdtemp()
+        tmp_file = os.path.join(tmpdir, "test.jpg")
+        try:
+            with open(tmp_file, "wb") as f:
+                f.write(b"\xff\xd8\xff" + b"\x00" * 10)
+            with mock_patch("app.routers.search.settings") as mock_settings:
+                mock_settings.photos_dir = tmpdir
+                client = TestClient(app)
+                response = client.get("/api/photos/test.jpg")
+            assert response.status_code == 200
+            assert "image/jpeg" in response.headers["content-type"]
+        finally:
+            os.unlink(tmp_file)
+            os.rmdir(tmpdir)
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_serve_photo_png_content_type(self, mock_get_model, mock_get_client):
+        """GET /api/photos/<path> returns image/png for .png files."""
+        import os
+        import tempfile
+        from unittest.mock import patch as mock_patch
+
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        tmpdir = tempfile.mkdtemp()
+        tmp_file = os.path.join(tmpdir, "test.png")
+        try:
+            with open(tmp_file, "wb") as f:
+                f.write(b"\x89PNG\r\n\x1a\n" + b"\x00" * 10)
+            with mock_patch("app.routers.search.settings") as mock_settings:
+                mock_settings.photos_dir = tmpdir
+                client = TestClient(app)
+                response = client.get("/api/photos/test.png")
+            assert response.status_code == 200
+            assert "image/png" in response.headers["content-type"]
+        finally:
+            os.unlink(tmp_file)
+            os.rmdir(tmpdir)
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_serve_photo_not_found(self, mock_get_model, mock_get_client):
+        """GET /api/photos/<path> returns 404 for a nonexistent file."""
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        response = client.get("/api/photos/nonexistent_file_xyz.jpg")
+        assert response.status_code == 404
+
+
+class TestQdrantServicePagination:
+    """Tests for Qdrant service pagination logic."""
+
+    @patch("app.services.qdrant_service.get_client")
+    def test_get_indexed_paths_paginates(self, mock_get):
+        """get_indexed_paths scrolls through all pages until next_offset is None."""
+        from app.services.qdrant_service import get_indexed_paths
+
+        mock_client = MagicMock()
+        mock_get.return_value = mock_client
+
+        def make_point(path: str) -> MagicMock:
+            p = MagicMock()
+            p.payload = {"file_path": path}
+            return p
+
+        # Two pages: first returns offset "page2", second returns None
+        page1_points = [make_point("a.jpg"), make_point("b.jpg")]
+        page2_points = [make_point("c.jpg")]
+        mock_client.scroll.side_effect = [
+            (page1_points, "page2"),
+            (page2_points, None),
+        ]
+
+        result = get_indexed_paths()
+        assert result == {"a.jpg", "b.jpg", "c.jpg"}
+        assert mock_client.scroll.call_count == 2

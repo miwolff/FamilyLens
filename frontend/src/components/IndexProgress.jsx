@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import "./IndexProgress.css";
 
 function formatTime(seconds) {
@@ -92,3 +93,21 @@ function IndexProgress({ progress, onCancel }) {
 }
 
 export default IndexProgress;
+
+IndexProgress.propTypes = {
+  progress: PropTypes.shape({
+    status: PropTypes.string.isRequired,
+    current: PropTypes.number,
+    total: PropTypes.number,
+    indexed: PropTypes.number,
+    skipped: PropTypes.number,
+    errors: PropTypes.number,
+    removed: PropTypes.number,
+    elapsed_seconds: PropTypes.number,
+    eta_seconds: PropTypes.number,
+    result: PropTypes.shape({
+      total_in_collection: PropTypes.number,
+    }),
+  }).isRequired,
+  onCancel: PropTypes.func.isRequired,
+};

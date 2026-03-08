@@ -120,9 +120,7 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
 
         removed = 0
         if cleanup:
-            disk_paths = {
-                str(p.relative_to(folder)) for p in image_paths
-            }
+            disk_paths = {str(p.relative_to(folder)) for p in image_paths}
             stale = already_indexed - disk_paths
             if stale:
                 removed = qdrant_service.delete_by_paths(list(stale))
