@@ -14,7 +14,7 @@
   - Progress bar showing current file / total files
   - Percentage completion
   - Elapsed time and estimated time remaining (ETA)
-  - Real-time counts of indexed, skipped, and error files
+  - Real-time counts of indexed, skipped, error, and removed files
   - Ability to cancel indexing mid-run
 - Provide a web app with a search bar for natural language queries
 - Display a ranked list of photos most similar to the query, browsable as a gallery

@@ -95,6 +95,11 @@
   font-weight: 600;
 }
 
+.index-progress-removed {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
 .index-progress-total {
   margin-left: auto;
   color: #28a745;

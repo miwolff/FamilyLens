@@ -26,6 +26,7 @@ _progress: dict = {
     "indexed": 0,
     "skipped": 0,
     "errors": 0,
+    "removed": 0,
     "started_at": 0.0,  # internal – time.monotonic() of run start
     "elapsed_seconds": 0.0,
     "eta_seconds": None,
@@ -39,6 +40,7 @@ class IndexRequest(BaseModel):
     """Request body for the index endpoint."""
 
     folder: str | None = None
+    cleanup: bool = False
 
 
 class IndexResponse(BaseModel):
@@ -47,6 +49,7 @@ class IndexResponse(BaseModel):
     indexed: int
     skipped: int
     errors: int
+    removed: int
     total_in_collection: int
 
 
@@ -59,6 +62,7 @@ class IndexStatus(BaseModel):
     indexed: int
     skipped: int
     errors: int
+    removed: int
     elapsed_seconds: float
     eta_seconds: float | None
     result: IndexResponse | None
@@ -73,7 +77,7 @@ def _discover_images(folder: Path) -> list[Path]:
     return sorted(set(images))
 
 
-def _run_indexing(folder: Path) -> None:
+def _run_indexing(folder: Path, cleanup: bool = False) -> None:
     """Background worker: index images and update _progress after every file.
 
     Checks _cancel_event before each file so the run can be interrupted.
@@ -88,6 +92,7 @@ def _run_indexing(folder: Path) -> None:
             "indexed": 0,
             "skipped": 0,
             "errors": 0,
+            "removed": 0,
             "started_at": started_at,
             "elapsed_seconds": 0.0,
             "eta_seconds": None,
@@ -113,6 +118,17 @@ def _run_indexing(folder: Path) -> None:
         _progress["total"] = len(new_paths)
         _progress["skipped"] = skipped
 
+        removed = 0
+        if cleanup:
+            disk_paths = {
+                str(p.relative_to(folder)) for p in image_paths
+            }
+            stale = already_indexed - disk_paths
+            if stale:
+                removed = qdrant_service.delete_by_paths(list(stale))
+                logger.info("Removed %d stale entries from index", removed)
+        _progress["removed"] = removed
+
         indexed = 0
         errors = 0
         current = 0
@@ -127,6 +143,7 @@ def _run_indexing(folder: Path) -> None:
                         "current": current,
                         "indexed": indexed,
                         "errors": errors,
+                        "removed": removed,
                         "elapsed_seconds": time.monotonic() - started_at,
                         "eta_seconds": None,
                     }
@@ -177,6 +194,7 @@ def _run_indexing(folder: Path) -> None:
             indexed=indexed,
             skipped=skipped,
             errors=errors,
+            removed=removed,
             total_in_collection=total_in_collection,
         )
         _progress.update(
@@ -215,12 +233,13 @@ def index_photos(
     for live progress. Returns 409 if indexing is already in progress.
     """
     folder = Path(request.folder if request and request.folder else settings.photos_dir)
+    cleanup = request.cleanup if request else False
 
     if not _run_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Indexing already running")
 
     _cancel_event.clear()
-    background_tasks.add_task(_run_indexing, folder)
+    background_tasks.add_task(_run_indexing, folder, cleanup)
 
     return IndexStatus(
         status="running",
@@ -229,6 +248,7 @@ def index_photos(
         indexed=0,
         skipped=0,
         errors=0,
+        removed=0,
         elapsed_seconds=0.0,
         eta_seconds=None,
         result=None,
@@ -249,6 +269,7 @@ async def get_index_status() -> IndexStatus:
         indexed=p["indexed"],
         skipped=p["skipped"],
         errors=p["errors"],
+        removed=p["removed"],
         elapsed_seconds=elapsed,
         eta_seconds=p["eta_seconds"],
         result=p["result"],

@@ -135,6 +135,37 @@ class TestQdrantService:
         mock_client.create_collection.assert_not_called()
 
     @patch("app.services.qdrant_service.get_client")
+    def test_delete_by_paths_calls_delete(self, mock_get):
+        """delete_by_paths calls client.delete with correct point IDs."""
+        from app.services.qdrant_service import delete_by_paths, file_point_id
+
+        mock_client = MagicMock()
+        mock_get.return_value = mock_client
+
+        paths = ["vacation/beach.jpg", "family/reunion.jpg"]
+        result = delete_by_paths(paths)
+
+        assert result == 2
+        mock_client.delete.assert_called_once()
+        call_kwargs = mock_client.delete.call_args
+        assert call_kwargs.kwargs["collection_name"] == "photos"
+        submitted_ids = call_kwargs.kwargs["points_selector"].points
+        assert set(submitted_ids) == {file_point_id(p) for p in paths}
+
+    @patch("app.services.qdrant_service.get_client")
+    def test_delete_by_paths_empty_list(self, mock_get):
+        """delete_by_paths returns 0 and skips delete call for empty input."""
+        from app.services.qdrant_service import delete_by_paths
+
+        mock_client = MagicMock()
+        mock_get.return_value = mock_client
+
+        result = delete_by_paths([])
+
+        assert result == 0
+        mock_client.delete.assert_not_called()
+
+    @patch("app.services.qdrant_service.get_client")
     def test_search_returns_formatted_results(self, mock_get):
         """search returns list of dicts with expected keys."""
         from app.services.qdrant_service import search
@@ -190,6 +221,7 @@ class TestIndexRouter:
                 "indexed": 0,
                 "skipped": 0,
                 "errors": 0,
+                "removed": 0,
                 "started_at": 0.0,
                 "elapsed_seconds": 0.0,
                 "eta_seconds": None,

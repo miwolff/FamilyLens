@@ -10,6 +10,7 @@ function App() {
   const [progress, setProgress] = useState({ status: "idle" });
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [cleanup, setCleanup] = useState(false);
   const pollingRef = useRef(null);
 
   const stopPolling = () => {
@@ -75,7 +76,7 @@ function App() {
       const res = await fetch("/api/index", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ cleanup }),
       });
       if (res.status === 409) {
         setMessage("Indexing is already in progress.");
@@ -114,6 +115,8 @@ function App() {
         onIndex={handleIndex}
         loading={loading}
         indexing={indexing}
+        cleanup={cleanup}
+        onCleanupChange={setCleanup}
       />
 
       <IndexProgress progress={progress} onCancel={handleCancel} />

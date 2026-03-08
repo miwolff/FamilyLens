@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./SearchBar.css";
 
-function SearchBar({ onSearch, onIndex, loading, indexing }) {
+function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupChange }) {
   const [input, setInput] = useState("");
 
   const handleSubmit = (e) => {
@@ -34,6 +34,15 @@ function SearchBar({ onSearch, onIndex, loading, indexing }) {
       >
         {indexing ? "Indexing..." : "Index Photos"}
       </button>
+      <label className="cleanup-label">
+        <input
+          type="checkbox"
+          checked={cleanup}
+          onChange={(e) => onCleanupChange(e.target.checked)}
+          disabled={indexing}
+        />
+        Remove deleted files from index
+      </label>
     </form>
   );
 }

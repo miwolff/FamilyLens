@@ -10,7 +10,7 @@ function formatTime(seconds) {
 function IndexProgress({ progress, onCancel }) {
   if (!progress || progress.status === "idle") return null;
 
-  const { status, current, total, indexed, skipped, errors, elapsed_seconds, eta_seconds, result } = progress;
+  const { status, current, total, indexed, skipped, errors, removed, elapsed_seconds, eta_seconds, result } = progress;
 
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
   const elapsed = formatTime(elapsed_seconds);
@@ -75,6 +75,9 @@ function IndexProgress({ progress, onCancel }) {
       <div className="index-progress-counts">
         <span>{indexed} indexed</span>
         <span>{skipped} skipped</span>
+        {removed > 0 && (
+          <span className="index-progress-removed">{removed} removed</span>
+        )}
         {errors > 0 && (
           <span className="index-progress-errors">{errors} errors</span>
         )}
