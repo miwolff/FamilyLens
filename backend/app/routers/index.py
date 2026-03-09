@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
-from app.services import clip_service, qdrant_service
+from app.services import clip_service, clustering_service, qdrant_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -21,6 +21,7 @@ SUPPORTED_EXTENSIONS = clip_service.SUPPORTED_IMAGE_EXTENSIONS
 # ---------------------------------------------------------------------------
 _progress: dict = {
     "status": "idle",  # idle | running | cancelling | complete | error | cancelled
+    "stage": "idle",  # idle | discovering | indexing | clustering | complete
     "current": 0,
     "total": 0,
     "indexed": 0,
@@ -30,6 +31,7 @@ _progress: dict = {
     "started_at": 0.0,  # internal – time.monotonic() of run start
     "elapsed_seconds": 0.0,
     "eta_seconds": None,
+    "cluster_error": None,
     "result": None,
 }
 _cancel_event = threading.Event()
@@ -51,12 +53,14 @@ class IndexResponse(BaseModel):
     errors: int
     removed: int
     total_in_collection: int
+    total_clusters: int
 
 
 class IndexStatus(BaseModel):
     """Live status of the current (or last) indexing run."""
 
     status: str
+    stage: str
     current: int
     total: int
     indexed: int
@@ -65,7 +69,18 @@ class IndexStatus(BaseModel):
     removed: int
     elapsed_seconds: float
     eta_seconds: float | None
+    cluster_error: str | None
     result: IndexResponse | None
+
+
+def get_progress_snapshot() -> dict:
+    """Return a safe snapshot of the current indexing progress."""
+    progress = dict(_progress)
+    if progress["status"] == "running" and progress["started_at"]:
+        progress["elapsed_seconds"] = (
+            time.monotonic() - progress["started_at"]
+        )
+    return progress
 
 
 def _discover_images(folder: Path) -> list[Path]:
@@ -87,6 +102,7 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
     _progress.update(
         {
             "status": "running",
+            "stage": "discovering",
             "current": 0,
             "total": 0,
             "indexed": 0,
@@ -96,13 +112,14 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
             "started_at": started_at,
             "elapsed_seconds": 0.0,
             "eta_seconds": None,
+            "cluster_error": None,
             "result": None,
         }
     )
     try:
         if not folder.is_dir():
             logger.error("Folder not found: %s", folder)
-            _progress["status"] = "error"
+            _progress.update({"status": "error", "stage": "error"})
             return
 
         logger.info("Discovering images in %s", folder)
@@ -115,6 +132,7 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
             p for p in image_paths if str(p.relative_to(folder)) not in already_indexed
         ]
         skipped = len(image_paths) - len(new_paths)
+        _progress["stage"] = "indexing"
         _progress["total"] = len(new_paths)
         _progress["skipped"] = skipped
 
@@ -180,6 +198,52 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
             qdrant_service.upsert_embeddings(batch)
             logger.info("Upserted final batch of %d", len(batch))
 
+        if _cancel_event.is_set():
+            logger.info("Indexing cancelled before clustering started")
+            _progress.update(
+                {
+                    "status": "cancelled",
+                    "stage": "cancelled",
+                    "current": current,
+                    "indexed": indexed,
+                    "errors": errors,
+                    "removed": removed,
+                    "elapsed_seconds": time.monotonic() - started_at,
+                    "eta_seconds": None,
+                }
+            )
+            return
+
+        _progress.update(
+            {
+                "stage": "clustering",
+                "current": len(new_paths),
+                "eta_seconds": None,
+            }
+        )
+
+        total_clusters = 0
+        cluster_error = None
+        try:
+            cluster_result = clustering_service.rebuild_clusters(
+                is_cancelled=_cancel_event.is_set,
+            )
+            total_clusters = cluster_result.total_clusters
+        except clustering_service.ClusteringCancelledError:
+            logger.info("Cluster build cancelled")
+            _progress.update(
+                {
+                    "status": "cancelled",
+                    "stage": "cancelled",
+                    "elapsed_seconds": time.monotonic() - started_at,
+                    "eta_seconds": None,
+                }
+            )
+            return
+        except Exception as exc:
+            logger.exception("Cluster build failed")
+            cluster_error = str(exc) or "Clusters could not be updated."
+
         total_in_collection = qdrant_service.get_indexed_count()
         elapsed = time.monotonic() - started_at
         logger.info(
@@ -194,15 +258,18 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
             errors=errors,
             removed=removed,
             total_in_collection=total_in_collection,
+            total_clusters=total_clusters,
         )
         _progress.update(
             {
                 "status": "complete",
+                "stage": "complete",
                 "current": len(new_paths),
                 "indexed": indexed,
                 "errors": errors,
                 "elapsed_seconds": elapsed,
                 "eta_seconds": None,
+                "cluster_error": cluster_error,
                 "result": result,
             }
         )
@@ -212,6 +279,7 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
         _progress.update(
             {
                 "status": "error",
+                "stage": "error",
                 "elapsed_seconds": time.monotonic() - started_at,
                 "eta_seconds": None,
             }
@@ -241,6 +309,7 @@ def index_photos(
 
     return IndexStatus(
         status="running",
+        stage="discovering",
         current=0,
         total=0,
         indexed=0,
@@ -249,6 +318,7 @@ def index_photos(
         removed=0,
         elapsed_seconds=0.0,
         eta_seconds=None,
+        cluster_error=None,
         result=None,
     )
 
@@ -256,20 +326,19 @@ def index_photos(
 @router.get("/index/status", response_model=IndexStatus)
 async def get_index_status() -> IndexStatus:
     """Return the live status of the current (or last) indexing run."""
-    p = _progress
-    elapsed = p["elapsed_seconds"]
-    if p["status"] == "running" and p["started_at"]:
-        elapsed = time.monotonic() - p["started_at"]
+    p = get_progress_snapshot()
     return IndexStatus(
         status=p["status"],
+        stage=p["stage"],
         current=p["current"],
         total=p["total"],
         indexed=p["indexed"],
         skipped=p["skipped"],
         errors=p["errors"],
         removed=p["removed"],
-        elapsed_seconds=elapsed,
+        elapsed_seconds=p["elapsed_seconds"],
         eta_seconds=p["eta_seconds"],
+        cluster_error=p["cluster_error"],
         result=p["result"],
     )
 
@@ -281,4 +350,5 @@ async def cancel_indexing() -> dict:
         return {"status": _progress["status"]}
     _cancel_event.set()
     _progress["status"] = "cancelling"
+    _progress["stage"] = _progress["stage"] or "cancelling"
     return {"status": "cancelling"}

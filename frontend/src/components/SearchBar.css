@@ -54,6 +54,16 @@
   background: #047857;
 }
 
+.btn-clusters {
+  background: white;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.btn-clusters:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
 .cleanup-label {
   display: flex;
   align-items: center;

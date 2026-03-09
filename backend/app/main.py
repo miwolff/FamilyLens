@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.routers import index, search
+from app.routers import clusters, index, search
 from app.services import clip_service, qdrant_service
 
 logging.basicConfig(
@@ -28,11 +28,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="FamilyLens API",
     description="Local-first intelligent photo search",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
 app.include_router(index.router, prefix="/api")
+app.include_router(clusters.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 
 

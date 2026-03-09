@@ -1,6 +1,6 @@
 # FamilyLens
 
-Local-first intelligent photo search — query your personal photo library using natural language.
+Local-first intelligent photo search — query your personal photo library using natural language and browse visually similar image clusters.
 
 ## Architecture
 
@@ -9,13 +9,14 @@ Three Docker containers orchestrated via Docker Compose:
 | Service | Tech | Purpose |
 |---------|------|---------|
 | **qdrant** | Qdrant v1.13.2 | Vector database for image embeddings |
-| **api** | FastAPI + CLIP ViT-B/32 | Encodes images & queries, serves REST API |
-| **web** | React (Vite) + nginx | Search UI with photo gallery |
+| **api** | FastAPI + CLIP ViT-B/32 + MiniBatchKMeans | Encodes images, rebuilds clusters, serves REST API |
+| **web** | React (Vite) + nginx | Search UI with gallery and cluster browser |
 
 **How it works:**
 1. **Index**: CLIP encodes each photo into a 512-dim vector, stored in Qdrant
-2. **Search**: Your text query is encoded by CLIP's text encoder, then matched against image vectors via cosine similarity
-3. **Results**: Photos ranked by similarity score, displayed in a responsive grid
+2. **Cluster**: After each indexing run, the backend groups nearby image embeddings into visual clusters
+3. **Search**: Your text query is encoded by CLIP's text encoder, then matched against image vectors via cosine similarity
+4. **Browse**: Search results and cluster galleries are displayed in the web UI
 
 ## Quick Start
 
@@ -37,6 +38,8 @@ cp .env.example .env
 PHOTOS_DIR=/path/to/your/photos
 ```
 
+You can give up to 5 photo directories in the `.env` file that all will be mounted into child folders of the `photos` directory of the api container. See .env.example and backend dockerfile.
+
 3. Start all services:
 
 ```bash
@@ -49,12 +52,16 @@ docker compose up --build
 
 6. Type a natural language query (e.g., "birthday party", "beach sunset") and hit **Search**
 
+7. Open **Clusters** to browse the largest visual groups in your library
+
 ### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/index` | Index photos from the configured folder |
 | `POST` | `/api/search` | Search photos by text query |
+| `GET` | `/api/clusters` | List image clusters from largest to smallest |
+| `GET` | `/api/clusters/{cluster_id}` | Get representatives and gallery for one cluster |
 | `GET` | `/api/photos/{path}` | Serve a photo file |
 | `GET` | `/api/status` | Get indexing status |
 | `GET` | `/health` | Health check |
@@ -71,6 +78,11 @@ curl -X POST http://localhost:8000/api/search \
 curl -X POST http://localhost:8000/api/index
 ```
 
+**Example — clusters:**
+```bash
+curl http://localhost:8000/api/clusters
+```
+
 ## Project Structure
 
 ```
@@ -85,8 +97,8 @@ FamilyLens/
 │   ├── app/
 │   │   ├── main.py            # FastAPI app, lifespan, endpoints
 │   │   ├── config.py          # Environment configuration
-│   │   ├── routers/           # API endpoints (index, search)
-│   │   └── services/          # CLIP & Qdrant clients
+│   │   ├── routers/           # API endpoints (index, search, clusters)
+│   │   └── services/          # CLIP, clustering, and Qdrant clients
 │   └── tests/
 ├── frontend/
 │   ├── Dockerfile              # React + nginx container
@@ -94,6 +106,7 @@ FamilyLens/
 │   ├── src/
 │   │   ├── App.jsx
 │   │   ├── components/         # SearchBar, PhotoGrid, etc.
+│   │   ├── pages/              # Search and cluster pages
 │   │   └── index.css
 │   ├── package.json
 │   ├── vite.config.js
@@ -157,6 +170,12 @@ npm run dev
 
 - **Testing**: MacBook Air with 8 GB RAM (~2.5 GB used by the stack)
 - **Production**: PC with 8 GB GPU for ~30,000 photos
+
+## Clusters
+
+- Clusters are rebuilt automatically after each indexing run.
+- The cluster browser sorts clusters by size so the largest one appears first.
+- Each cluster view shows a few representative images and the full gallery for that cluster.
 
 ## Supported Formats
 

@@ -12,6 +12,8 @@ wheels/
 # Environment variables
 .env
 
+node_modules
+
 # Local photo files for testing
 *.jpg
 *.jpeg
