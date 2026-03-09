@@ -1,8 +1,10 @@
 import hashlib
 import logging
 import uuid
+from collections.abc import Iterable
+from dataclasses import dataclass
 
-from qdrant_client import QdrantClient
+from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
     Distance,
     PointIdsList,
@@ -15,6 +17,29 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 _client: QdrantClient | None = None
+
+
+@dataclass(slots=True)
+class IndexedPoint:
+    """Indexed photo record loaded from Qdrant."""
+
+    point_id: str
+    file_path: str
+    filename: str
+    vector: list[float] | None = None
+    cluster_id: int | None = None
+    cluster_similarity: float | None = None
+    cluster_representative_rank: int | None = None
+
+
+@dataclass(slots=True)
+class ClusterPayloadUpdate:
+    """Cluster payload update for a single indexed point."""
+
+    point_id: str
+    cluster_id: int
+    cluster_similarity: float
+    cluster_representative_rank: int | None
 
 
 def get_client() -> QdrantClient:
@@ -59,6 +84,49 @@ def file_point_id(file_path: str) -> str:
     return str(uuid.UUID(bytes=digest[:16]))
 
 
+def _record_to_indexed_point(
+    record: models.Record,
+    *,
+    with_vectors: bool,
+) -> IndexedPoint:
+    """Convert a Qdrant record into an IndexedPoint."""
+    payload = record.payload or {}
+    raw_vector = record.vector if with_vectors else None
+    if isinstance(raw_vector, dict):
+        raw_vector = next(iter(raw_vector.values()), None)
+
+    cluster_id = payload.get("cluster_id")
+    cluster_similarity = payload.get("cluster_similarity")
+    representative_rank = payload.get("cluster_representative_rank")
+
+    return IndexedPoint(
+        point_id=str(record.id),
+        file_path=str(payload.get("file_path", "")),
+        filename=str(payload.get("filename", "")),
+        vector=list(raw_vector) if raw_vector is not None else None,
+        cluster_id=int(cluster_id) if cluster_id is not None else None,
+        cluster_similarity=(
+            float(cluster_similarity)
+            if cluster_similarity is not None
+            else None
+        ),
+        cluster_representative_rank=(
+            int(representative_rank)
+            if representative_rank is not None
+            else None
+        ),
+    )
+
+
+def _chunked(
+    items: list[ClusterPayloadUpdate],
+    chunk_size: int,
+) -> Iterable[list[ClusterPayloadUpdate]]:
+    """Yield lists of updates in fixed-size chunks."""
+    for start in range(0, len(items), chunk_size):
+        yield items[start : start + chunk_size]
+
+
 def get_indexed_paths() -> set[str]:
     """Return the set of already-indexed file paths."""
     client = get_client()
@@ -80,6 +148,75 @@ def get_indexed_paths() -> set[str]:
             break
         offset = next_offset
     return indexed
+
+
+def scroll_indexed_points(
+    *,
+    with_vectors: bool = False,
+    cluster_id: int | None = None,
+) -> list[IndexedPoint]:
+    """Scroll indexed points from Qdrant, optionally filtered by cluster."""
+    client = get_client()
+    points: list[IndexedPoint] = []
+    offset = None
+    scroll_filter = None
+
+    if cluster_id is not None:
+        scroll_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="cluster_id",
+                    match=models.MatchValue(value=cluster_id),
+                )
+            ]
+        )
+
+    while True:
+        records, next_offset = client.scroll(
+            collection_name=settings.collection_name,
+            scroll_filter=scroll_filter,
+            limit=256,
+            offset=offset,
+            with_payload=True,
+            with_vectors=with_vectors,
+        )
+        for record in records:
+            points.append(
+                _record_to_indexed_point(record, with_vectors=with_vectors)
+            )
+        if next_offset is None:
+            break
+        offset = next_offset
+
+    return points
+
+
+def update_cluster_payloads(updates: list[ClusterPayloadUpdate]) -> None:
+    """Persist cluster metadata for indexed points in batched writes."""
+    if not updates:
+        return
+
+    client = get_client()
+    for batch in _chunked(updates, settings.cluster_payload_batch_size):
+        operations = [
+            models.SetPayloadOperation(
+                set_payload=models.SetPayload(
+                    payload={
+                        "cluster_id": update.cluster_id,
+                        "cluster_similarity": update.cluster_similarity,
+                        "cluster_representative_rank": (
+                            update.cluster_representative_rank
+                        ),
+                    },
+                    points=[update.point_id],
+                )
+            )
+            for update in batch
+        ]
+        client.batch_update_points(
+            collection_name=settings.collection_name,
+            update_operations=operations,
+        )
 
 
 def upsert_embeddings(

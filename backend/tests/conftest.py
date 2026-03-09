@@ -2,6 +2,7 @@
 without installing torch/sentence-transformers/Pillow locally."""
 
 import sys
+import types
 from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
@@ -9,15 +10,21 @@ from unittest.mock import MagicMock
 # The actual behaviour is tested via mocks in individual test cases.
 # ---------------------------------------------------------------------------
 
-_HEAVY_MODULES = [
-    "torch",
+if "torch" not in sys.modules:
+    torch_stub = types.ModuleType("torch")
+
+    class Tensor:  # noqa: D401 - tiny stub for SciPy/sklearn checks
+        """Torch Tensor stub used by test imports."""
+
+    torch_stub.Tensor = Tensor
+    sys.modules["torch"] = torch_stub
+
+for _mod in [
     "torchvision",
     "PIL",
     "PIL.Image",
     "rawpy",
     "sentence_transformers",
-]
-
-for _mod in _HEAVY_MODULES:
+]:
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()

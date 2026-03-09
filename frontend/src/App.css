@@ -5,7 +5,10 @@
 }
 
 .app-header {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
 }
 
 .app-header h1 {
@@ -19,6 +22,36 @@
   margin-top: 0.25rem;
 }
 
+.app-nav {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.app-nav-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.app-nav-link:hover {
+  background: #dbeafe;
+}
+
+.app-nav-link--active {
+  background: #2563eb;
+  color: white;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .message {
   text-align: center;
   padding: 0.75rem 1rem;
@@ -30,4 +63,11 @@
 .results-count {
   color: #666;
   font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

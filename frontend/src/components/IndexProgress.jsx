@@ -11,9 +11,22 @@ function formatTime(seconds) {
 function IndexProgress({ progress, onCancel }) {
   if (!progress || progress.status === "idle") return null;
 
-  const { status, current, total, indexed, skipped, errors, removed, elapsed_seconds, eta_seconds, result } = progress;
+  const {
+    status,
+    stage,
+    current,
+    total,
+    indexed,
+    skipped,
+    errors,
+    removed,
+    elapsed_seconds,
+    eta_seconds,
+    cluster_error,
+    result,
+  } = progress;
 
-  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  const pct = total > 0 ? Math.round((current / total) * 100) : stage === "clustering" ? 100 : 0;
   const elapsed = formatTime(elapsed_seconds);
   const eta = formatTime(eta_seconds);
 
@@ -24,7 +37,9 @@ function IndexProgress({ progress, onCancel }) {
   const isError = status === "error";
 
   const statusLabel = isRunning
-    ? "Indexing photos…"
+    ? stage === "clustering"
+      ? "Building clusters…"
+      : "Indexing photos…"
     : isCancelling
     ? "Cancelling…"
     : isComplete
@@ -73,6 +88,15 @@ function IndexProgress({ progress, onCancel }) {
         </div>
       )}
 
+      {stage === "clustering" && (
+        <div className="index-progress-timing">
+          <span>Embeddings are indexed. Building image clusters now…</span>
+          <span className="index-progress-time">
+            {elapsed && `Elapsed: ${elapsed}`}
+          </span>
+        </div>
+      )}
+
       <div className="index-progress-counts">
         <span>{indexed} indexed</span>
         <span>{skipped} skipped</span>
@@ -84,10 +108,12 @@ function IndexProgress({ progress, onCancel }) {
         )}
         {isComplete && result && (
           <span className="index-progress-total">
-            {result.total_in_collection} total in library
+            {result.total_in_collection} total in library · {result.total_clusters} clusters
           </span>
         )}
       </div>
+
+      {cluster_error && <div className="index-progress-warning">Clusters unavailable: {cluster_error}</div>}
     </div>
   );
 }
@@ -97,6 +123,7 @@ export default IndexProgress;
 IndexProgress.propTypes = {
   progress: PropTypes.shape({
     status: PropTypes.string.isRequired,
+    stage: PropTypes.string,
     current: PropTypes.number,
     total: PropTypes.number,
     indexed: PropTypes.number,
@@ -105,8 +132,10 @@ IndexProgress.propTypes = {
     removed: PropTypes.number,
     elapsed_seconds: PropTypes.number,
     eta_seconds: PropTypes.number,
+    cluster_error: PropTypes.string,
     result: PropTypes.shape({
       total_in_collection: PropTypes.number,
+      total_clusters: PropTypes.number,
     }),
   }).isRequired,
   onCancel: PropTypes.func.isRequired,

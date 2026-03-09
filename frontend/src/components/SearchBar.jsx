@@ -2,7 +2,15 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import "./SearchBar.css";
 
-function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupChange }) {
+function SearchBar({
+  onSearch,
+  onIndex,
+  onBrowseClusters,
+  loading,
+  indexing,
+  cleanup,
+  onCleanupChange,
+}) {
   const [input, setInput] = useState("");
 
   const handleSubmit = (e) => {
@@ -35,6 +43,13 @@ function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupCha
       >
         {indexing ? "Indexing..." : "Index Photos"}
       </button>
+      <button
+        type="button"
+        className="btn btn-clusters"
+        onClick={onBrowseClusters}
+      >
+        Browse Clusters
+      </button>
       <label className="cleanup-label">
         <input
           type="checkbox"
@@ -53,6 +68,7 @@ export default SearchBar;
 SearchBar.propTypes = {
   onSearch: PropTypes.func.isRequired,
   onIndex: PropTypes.func.isRequired,
+  onBrowseClusters: PropTypes.func.isRequired,
   loading: PropTypes.bool.isRequired,
   indexing: PropTypes.bool.isRequired,
   cleanup: PropTypes.bool.isRequired,

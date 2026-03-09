@@ -251,6 +251,7 @@ class TestIndexRouter:
         index_module._progress.update(
             {
                 "status": "idle",
+                "stage": "idle",
                 "current": 0,
                 "total": 0,
                 "indexed": 0,
@@ -260,6 +261,7 @@ class TestIndexRouter:
                 "started_at": 0.0,
                 "elapsed_seconds": 0.0,
                 "eta_seconds": None,
+                "cluster_error": None,
                 "result": None,
             }
         )
@@ -499,7 +501,7 @@ class TestSearchRouterFull:
             assert response.status_code == 200
             assert response.content == b"jpeg-preview"
             assert "image/jpeg" in response.headers["content-type"]
-            mock_render_preview.assert_called_once_with(Path(tmp_file))
+            mock_render_preview.assert_called_once_with(Path(tmp_file).resolve())
         finally:
             os.unlink(tmp_file)
             os.rmdir(tmpdir)
@@ -544,3 +546,276 @@ class TestQdrantServicePagination:
         result = get_indexed_paths()
         assert result == {"a.jpg", "b.jpg", "c.jpg"}
         assert mock_client.scroll.call_count == 2
+
+
+class TestClusteringService:
+    """Tests for the clustering service."""
+
+    @patch("app.services.clustering_service.qdrant_service.update_cluster_payloads")
+    @patch("app.services.clustering_service.qdrant_service.scroll_indexed_points")
+    def test_rebuild_clusters_sorts_cluster_ids_by_size(
+        self,
+        mock_scroll,
+        mock_update,
+    ):
+        """Largest cluster should always become public cluster 0."""
+        from app.services import clustering_service, qdrant_service
+
+        mock_scroll.return_value = [
+            qdrant_service.IndexedPoint(
+                point_id="a",
+                file_path="a.jpg",
+                filename="a.jpg",
+                vector=[1.0, 0.0],
+            ),
+            qdrant_service.IndexedPoint(
+                point_id="b",
+                file_path="b.jpg",
+                filename="b.jpg",
+                vector=[0.95, 0.05],
+            ),
+            qdrant_service.IndexedPoint(
+                point_id="c",
+                file_path="c.jpg",
+                filename="c.jpg",
+                vector=[0.9, 0.1],
+            ),
+            qdrant_service.IndexedPoint(
+                point_id="d",
+                file_path="d.jpg",
+                filename="d.jpg",
+                vector=[0.0, 1.0],
+            ),
+        ]
+
+        with patch.object(clustering_service.settings, "cluster_count", 2), patch.object(
+            clustering_service.settings,
+            "cluster_representative_count",
+            2,
+        ):
+            result = clustering_service.rebuild_clusters()
+
+        assert result.total_clusters == 2
+        updates = mock_update.call_args.args[0]
+        cluster_zero_updates = [u for u in updates if u.cluster_id == 0]
+        cluster_one_updates = [u for u in updates if u.cluster_id == 1]
+        assert len(cluster_zero_updates) == 3
+        assert len(cluster_one_updates) == 1
+        assert sum(u.cluster_representative_rank is not None for u in updates) == 3
+
+    @patch("app.services.clustering_service.qdrant_service.scroll_indexed_points")
+    def test_get_cluster_catalog_reports_unavailable_without_payloads(
+        self,
+        mock_scroll,
+    ):
+        """Cluster browse data is unavailable until cluster ids are stored."""
+        from app.services import clustering_service, qdrant_service
+
+        mock_scroll.return_value = [
+            qdrant_service.IndexedPoint(
+                point_id="a",
+                file_path="a.jpg",
+                filename="a.jpg",
+            )
+        ]
+
+        catalog = clustering_service.get_cluster_catalog()
+
+        assert catalog.status == "unavailable"
+        assert catalog.total_photos == 1
+
+    @patch("app.services.clustering_service.qdrant_service.scroll_indexed_points")
+    def test_get_cluster_detail_returns_navigation_and_sorted_photos(
+        self,
+        mock_scroll,
+    ):
+        """Cluster detail exposes navigation and representative-first ordering."""
+        from app.services import clustering_service, qdrant_service
+
+        all_points = [
+            qdrant_service.IndexedPoint(
+                point_id="a",
+                file_path="a.jpg",
+                filename="a.jpg",
+                cluster_id=0,
+                cluster_similarity=0.99,
+                cluster_representative_rank=1,
+            ),
+            qdrant_service.IndexedPoint(
+                point_id="b",
+                file_path="b.jpg",
+                filename="b.jpg",
+                cluster_id=0,
+                cluster_similarity=0.8,
+                cluster_representative_rank=None,
+            ),
+            qdrant_service.IndexedPoint(
+                point_id="c",
+                file_path="c.jpg",
+                filename="c.jpg",
+                cluster_id=1,
+                cluster_similarity=0.95,
+                cluster_representative_rank=1,
+            ),
+        ]
+        cluster_zero_points = all_points[:2]
+        mock_scroll.side_effect = [all_points, all_points, cluster_zero_points]
+
+        detail = clustering_service.get_cluster_detail(0)
+
+        assert detail.total_clusters == 2
+        assert detail.previous_cluster_id is None
+        assert detail.next_cluster_id == 1
+        assert detail.photos[0].file_path == "a.jpg"
+        assert detail.representative_photos[0].file_path == "a.jpg"
+
+
+class TestClustersRouter:
+    """Tests for the cluster browsing API endpoints."""
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    @patch("app.routers.index.get_progress_snapshot")
+    @patch("app.services.clustering_service.get_cluster_catalog")
+    def test_list_clusters_returns_ready_catalog(
+        self,
+        mock_catalog,
+        mock_progress,
+        mock_get_model,
+        mock_get_client,
+    ):
+        """GET /api/clusters returns ready data for the browse page."""
+        from app.main import app
+        from app.services import clustering_service
+        from fastapi.testclient import TestClient
+
+        mock_progress.return_value = {
+            "status": "idle",
+            "stage": "idle",
+            "cluster_error": None,
+        }
+        mock_catalog.return_value = clustering_service.ClusterCatalogData(
+            status="ready",
+            total_clusters=1,
+            total_photos=3,
+            clusters=[
+                clustering_service.ClusterSummaryData(
+                    cluster_id=0,
+                    size=3,
+                    representative_photos=[
+                        clustering_service.ClusterPhotoData(
+                            file_path="a.jpg",
+                            filename="a.jpg",
+                            score=0.99,
+                        )
+                    ],
+                )
+            ],
+        )
+
+        client = TestClient(app)
+        response = client.get("/api/clusters")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ready"
+        assert data["total_clusters"] == 1
+        assert data["clusters"][0]["cluster_id"] == 0
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    @patch("app.routers.index.get_progress_snapshot")
+    def test_get_cluster_returns_409_while_building(
+        self,
+        mock_progress,
+        mock_get_model,
+        mock_get_client,
+    ):
+        """GET /api/clusters/<id> is unavailable during cluster rebuilds."""
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        mock_progress.return_value = {
+            "status": "running",
+            "stage": "clustering",
+            "cluster_error": None,
+        }
+
+        client = TestClient(app)
+        response = client.get("/api/clusters/0")
+
+        assert response.status_code == 409
+        assert "rebuilt" in response.json()["detail"].lower()
+
+
+class TestIndexRouterClustering:
+    """Tests for indexing results that include clustering information."""
+
+    def setup_method(self):
+        """Reset router state before each test."""
+        from app.routers import index as index_module
+
+        if index_module._run_lock.locked():
+            index_module._run_lock.release()
+        index_module._cancel_event.clear()
+        index_module._progress.update(
+            {
+                "status": "idle",
+                "stage": "idle",
+                "current": 0,
+                "total": 0,
+                "indexed": 0,
+                "skipped": 0,
+                "errors": 0,
+                "removed": 0,
+                "started_at": 0.0,
+                "elapsed_seconds": 0.0,
+                "eta_seconds": None,
+                "cluster_error": None,
+                "result": None,
+            }
+        )
+
+    @patch("app.services.clustering_service.rebuild_clusters")
+    @patch("app.services.qdrant_service.get_indexed_count")
+    @patch("app.services.qdrant_service.upsert_embeddings")
+    @patch("app.services.qdrant_service.get_indexed_paths")
+    @patch("app.services.clip_service.encode_image")
+    def test_run_indexing_sets_total_clusters_on_complete(
+        self,
+        mock_encode_image,
+        mock_get_paths,
+        mock_upsert,
+        mock_get_count,
+        mock_rebuild,
+    ):
+        """Successful indexing stores cluster counts in the final status."""
+        import tempfile
+
+        from app.routers import index as index_module
+        from app.services.clustering_service import ClusterBuildResult
+
+        mock_encode_image.return_value = [0.1, 0.2]
+        mock_get_paths.return_value = set()
+        mock_get_count.return_value = 1
+        mock_rebuild.return_value = ClusterBuildResult(
+            total_clusters=4,
+            total_photos=1,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            image_path = Path(tmpdir) / "photo.jpg"
+            image_path.write_bytes(b"jpg")
+            index_module._run_lock.acquire()
+            try:
+                index_module._run_indexing(Path(tmpdir), cleanup=False)
+            finally:
+                if index_module._run_lock.locked():
+                    index_module._run_lock.release()
+
+        assert mock_upsert.called
+        assert index_module._progress["status"] == "complete"
+        assert index_module._progress["result"].total_clusters == 4
+        assert index_module._progress["cluster_error"] is None

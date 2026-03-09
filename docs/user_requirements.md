@@ -28,3 +28,13 @@
 - Users can remove stale index entries (files no longer on disk) via a "Remove deleted files from index" checkbox on the Index Photos button. This is useful when changing the photo directory path or after deleting photos from disk.
 - Users can index photos from up to 5 separate directories by setting `PHOTOS_DIR`, `PHOTOS_DIR_2` … `PHOTOS_DIR_5` in `.env`. Extra directories are mounted under `/photos_N` in the container and indexed together with the first photos folder.
 
+## v0.2
+
+- Users can browse clusters of visually similar images on a dedicated clusters page in the frontend.
+- The application should order clusters from largest to smallest so browsing starts with the biggest cluster and can continue through the next largest clusters one by one.
+- Each cluster page should show a small representative set of images that are nearest to the cluster center.
+- Each cluster page should also show the full gallery of images assigned to that cluster.
+- Users should be able to navigate from the search page to the clusters page and back again.
+- The backend should rebuild clusters automatically after each indexing run so cluster browsing stays aligned with the current image library.
+- Cluster browsing should remain local-first and use the same indexed embeddings already stored for search.
+

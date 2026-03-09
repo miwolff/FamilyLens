@@ -106,6 +106,12 @@
   font-weight: 600;
 }
 
+.index-progress-warning {
+  margin-top: 10px;
+  color: #b45309;
+  font-size: 13px;
+}
+
 .btn-cancel {
   padding: 4px 12px;
   font-size: 13px;
