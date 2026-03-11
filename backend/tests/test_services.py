@@ -262,6 +262,7 @@ class TestIndexRouter:
                 "elapsed_seconds": 0.0,
                 "eta_seconds": None,
                 "cluster_error": None,
+                "cluster_count": 24,
                 "result": None,
             }
         )
@@ -292,10 +293,11 @@ class TestIndexRouter:
         client = TestClient(app, raise_server_exceptions=False)
         response = client.post(
             "/api/index",
-            json={"folder": "/nonexistent/folder"},
+            json={"folder": "/nonexistent/folder", "cluster_count": 7},
         )
         assert response.status_code == 200
         assert response.json()["status"] == "running"
+        assert response.json()["cluster_count"] == 7
 
         # Background task runs synchronously in TestClient before returning,
         # so status is already updated by the time we poll.
@@ -338,6 +340,21 @@ class TestIndexRouter:
         response = client.post("/api/index/cancel")
         assert response.status_code == 200
         assert response.json()["status"] == "idle"
+        assert response.json()["cluster_count"] == 24
+
+    @patch("app.services.clip_service._model", new=MagicMock())
+    @patch("app.services.qdrant_service.get_client")
+    @patch("app.services.clip_service.get_model")
+    def test_index_rejects_invalid_cluster_count(
+        self, mock_get_model, mock_get_client
+    ):
+        """POST /api/index rejects cluster counts below 1."""
+        from app.main import app
+        from fastapi.testclient import TestClient
+
+        client = TestClient(app)
+        response = client.post("/api/index", json={"cluster_count": 0})
+        assert response.status_code == 422
 
     def test_discover_images_includes_raw_formats(self):
         """_discover_images finds DNG and NEF files alongside standard images."""
@@ -794,12 +811,16 @@ class TestIndexRouterClustering:
             image_path.write_bytes(b"jpg")
             index_module._run_lock.acquire()
             try:
-                index_module._run_indexing(Path(tmpdir), cleanup=False)
+                index_module._run_indexing(
+                    Path(tmpdir), cleanup=False, cluster_count=7
+                )
             finally:
                 if index_module._run_lock.locked():
                     index_module._run_lock.release()
 
         assert mock_upsert.called
+        assert mock_rebuild.call_args.kwargs["cluster_count"] == 7
         assert index_module._progress["status"] == "complete"
+        assert index_module._progress["cluster_count"] == 7
         assert index_module._progress["result"].total_clusters == 4
         assert index_module._progress["cluster_error"] is None

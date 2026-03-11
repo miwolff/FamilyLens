@@ -115,6 +115,7 @@ def _sort_cluster_members(
 
 
 def rebuild_clusters(
+    cluster_count: int | None = None,
     is_cancelled: Callable[[], bool] | None = None,
 ) -> ClusterBuildResult:
     """Recompute cluster membership for all photos."""
@@ -132,7 +133,8 @@ def rebuild_clusters(
     )
     _raise_if_cancelled(is_cancelled)
 
-    n_clusters = min(settings.cluster_count, total_photos)
+    requested_cluster_count = cluster_count or settings.cluster_count
+    n_clusters = min(requested_cluster_count, total_photos)
     if total_photos == 1 or n_clusters == 1:
         labels = np.zeros(total_photos, dtype=np.int32)
         centers = vectors[:1]
