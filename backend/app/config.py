@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     index_batch_size: int = 32
     search_default_limit: int = 20
     cluster_count: int = 24
-    cluster_representative_count: int = 4
     cluster_payload_batch_size: int = 256
     cluster_random_seed: int = 42
 

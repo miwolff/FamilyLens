@@ -29,7 +29,6 @@ class IndexedPoint:
     vector: list[float] | None = None
     cluster_id: int | None = None
     cluster_similarity: float | None = None
-    cluster_representative_rank: int | None = None
 
 
 @dataclass(slots=True)
@@ -39,7 +38,6 @@ class ClusterPayloadUpdate:
     point_id: str
     cluster_id: int
     cluster_similarity: float
-    cluster_representative_rank: int | None
 
 
 def get_client() -> QdrantClient:
@@ -97,8 +95,6 @@ def _record_to_indexed_point(
 
     cluster_id = payload.get("cluster_id")
     cluster_similarity = payload.get("cluster_similarity")
-    representative_rank = payload.get("cluster_representative_rank")
-
     return IndexedPoint(
         point_id=str(record.id),
         file_path=str(payload.get("file_path", "")),
@@ -108,11 +104,6 @@ def _record_to_indexed_point(
         cluster_similarity=(
             float(cluster_similarity)
             if cluster_similarity is not None
-            else None
-        ),
-        cluster_representative_rank=(
-            int(representative_rank)
-            if representative_rank is not None
             else None
         ),
     )
@@ -204,15 +195,20 @@ def update_cluster_payloads(updates: list[ClusterPayloadUpdate]) -> None:
                     payload={
                         "cluster_id": update.cluster_id,
                         "cluster_similarity": update.cluster_similarity,
-                        "cluster_representative_rank": (
-                            update.cluster_representative_rank
-                        ),
                     },
                     points=[update.point_id],
                 )
             )
             for update in batch
         ]
+        operations.append(
+            models.DeletePayloadOperation(
+                delete_payload=models.DeletePayload(
+                    keys=["cluster_representative_rank"],
+                    points=[update.point_id for update in batch],
+                )
+            )
+        )
         client.batch_update_points(
             collection_name=settings.collection_name,
             update_operations=operations,

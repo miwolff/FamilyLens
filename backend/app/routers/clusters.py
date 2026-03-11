@@ -20,7 +20,6 @@ class ClusterSummary(BaseModel):
 
     cluster_id: int
     size: int
-    representative_photos: list[ClusterPhoto] = Field(default_factory=list)
 
 
 class ClusterListResponse(BaseModel):
@@ -41,7 +40,6 @@ class ClusterDetailResponse(BaseModel):
     total_clusters: int
     previous_cluster_id: int | None
     next_cluster_id: int | None
-    representative_photos: list[ClusterPhoto]
     photos: list[ClusterPhoto]
 
 
@@ -101,10 +99,6 @@ def list_clusters() -> ClusterListResponse:
             ClusterSummary(
                 cluster_id=cluster.cluster_id,
                 size=cluster.size,
-                representative_photos=[
-                        _photo_model(photo)
-                    for photo in cluster.representative_photos
-                ],
             )
             for cluster in catalog.clusters
         ],
@@ -113,7 +107,7 @@ def list_clusters() -> ClusterListResponse:
 
 @router.get("/clusters/{cluster_id}", response_model=ClusterDetailResponse)
 def get_cluster(cluster_id: int) -> ClusterDetailResponse:
-    """Return one cluster including representatives and the full gallery."""
+    """Return one cluster gallery."""
     progress = index_router.get_progress_snapshot()
     if progress["status"] in {"running", "cancelling"}:
         raise HTTPException(
@@ -140,9 +134,5 @@ def get_cluster(cluster_id: int) -> ClusterDetailResponse:
         total_clusters=detail.total_clusters,
         previous_cluster_id=detail.previous_cluster_id,
         next_cluster_id=detail.next_cluster_id,
-        representative_photos=[
-            _photo_model(photo)
-            for photo in detail.representative_photos
-        ],
         photos=[_photo_model(photo) for photo in detail.photos],
     )
