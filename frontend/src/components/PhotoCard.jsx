@@ -8,7 +8,7 @@ function PhotoCard({ result }) {
     result.file_path.split("/").map(encodeURIComponent).join("/");
 
   return (
-    <div className="photo-card">
+    <div className="photo-card" title={result.file_path}>
       <div className="photo-wrapper">
         <img
           src={imageUrl}
@@ -17,11 +17,6 @@ function PhotoCard({ result }) {
           loading="lazy"
         />
         <span className="score-badge">{scorePercent}%</span>
-      </div>
-      <div className="photo-info">
-        <span className="photo-filename" title={result.file_path}>
-          {result.filename}
-        </span>
       </div>
     </div>
   );

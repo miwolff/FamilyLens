@@ -6,6 +6,8 @@
 - The application should run entirely on the user's local machine, without uploading photos or metadata to the cloud
 - The search results should be accurate and relevant, leveraging metadata and content analysis of the photos
 - The application should have a simple and intuitive user interface for searching and browsing photos
+- The frontend should look sleek, modern, and professional while prioritizing the photo gallery over interface chrome
+- The frontend should avoid redundant navigation and repeated buttons when the same action is already available elsewhere in the UI
 
 ## MVP (v0.1)
 

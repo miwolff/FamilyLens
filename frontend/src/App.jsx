@@ -7,11 +7,14 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
-          <h1>FamilyLens</h1>
-          <p className="subtitle">
-            Search your photos with natural language and browse visual clusters
-          </p>
+        <div className="app-brand">
+          <span className="app-kicker">Local-first photo search</span>
+          <div className="app-brand-copy">
+            <h1>FamilyLens</h1>
+            <p className="subtitle">
+              Search your library in plain English and browse visual clusters.
+            </p>
+          </div>
         </div>
         <nav className="app-nav" aria-label="Primary">
           <NavLink

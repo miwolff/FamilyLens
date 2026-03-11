@@ -135,24 +135,34 @@ function ClustersPage() {
 
   return (
     <div className="clusters-page">
-      <div className="clusters-toolbar">
-        <button
-          type="button"
-          className="btn btn-clusters-page"
-          onClick={() => navigate("/")}
-        >
-          Back to Search
-        </button>
-      </div>
+      <section className="clusters-overview">
+        <div className="clusters-overview-copy">
+          <p className="clusters-eyebrow">Largest clusters first</p>
+          <h2>Browse visually similar groups of photos</h2>
+          <p className="clusters-copy">
+            Representative photos explain the cluster quickly, then the full
+            gallery lets you stay focused on the images.
+          </p>
+        </div>
 
-      <section className="clusters-hero">
-        <p className="clusters-eyebrow">Largest clusters first</p>
-        <h2>Browse visually similar groups of photos</h2>
-        <p className="clusters-copy">
-          Each cluster groups images that sit close together in embedding space.
-          Representative photos appear first, followed by the full gallery for the
-          selected cluster.
-        </p>
+        {catalog.status === "ready" && (
+          <div className="clusters-stats">
+            <div className="clusters-stat">
+              <span className="clusters-stat-label">Library</span>
+              <strong>
+                {catalog.total_clusters} clusters across {catalog.total_photos} photos
+              </strong>
+            </div>
+            {detail && (
+              <div className="clusters-stat clusters-stat--current">
+                <span className="clusters-stat-label">Current cluster</span>
+                <strong>
+                  {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
+                </strong>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {catalog.status !== "ready" && (
@@ -163,23 +173,6 @@ function ClustersPage() {
 
       {catalog.status === "ready" && (
         <>
-          <section className="clusters-meta-card">
-            <div>
-              <p className="clusters-meta-label">Cluster Library</p>
-              <p className="clusters-meta-value">
-                {catalog.total_clusters} clusters across {catalog.total_photos} photos
-              </p>
-            </div>
-            {detail && (
-              <div>
-                <p className="clusters-meta-label">Current Cluster</p>
-                <p className="clusters-meta-value">
-                  {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
-                </p>
-              </div>
-            )}
-          </section>
-
           <section className="clusters-nav-card">
             <button
               type="button"
@@ -218,8 +211,7 @@ function ClustersPage() {
                 <div className="clusters-section-header">
                   <h3>Representative Photos</h3>
                   <p>
-                    The closest photos to this cluster&apos;s center help explain the
-                    visual theme.
+                    The tightest visual matches to the cluster center.
                   </p>
                 </div>
                 <PhotoGrid results={detail.representative_photos} loading={false} />
@@ -229,8 +221,7 @@ function ClustersPage() {
                 <div className="clusters-section-header">
                   <h3>All Photos In This Cluster</h3>
                   <p>
-                    Sorted by closeness to the cluster center, from strongest match
-                    to loosest.
+                    Sorted from the strongest match to the loosest.
                   </p>
                 </div>
                 <PhotoGrid results={detail.photos} loading={false} />
