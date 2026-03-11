@@ -132,6 +132,7 @@ function ClustersPage() {
   };
 
   const currentClusterNumber = detail ? detail.cluster_id + 1 : null;
+  const selectedClusterId = detail?.cluster_id ?? "";
 
   return (
     <div className="clusters-page">
@@ -153,16 +154,22 @@ function ClustersPage() {
               Previous Cluster
             </button>
 
-            <div className="clusters-nav-copy">
-              {detail ? (
-                <>
-                  <strong>Cluster {currentClusterNumber}</strong>
-                  <span>{detail.size} photos</span>
-                </>
-              ) : (
-                <span>{detailLoading ? "Loading cluster…" : detailMessage}</span>
-              )}
-            </div>
+            <label className="clusters-picker" htmlFor="cluster-picker">
+              <span className="clusters-picker-label">Jump to</span>
+              <select
+                id="cluster-picker"
+                className="clusters-picker-select"
+                value={selectedClusterId}
+                onChange={(e) => handleGoToCluster(Number(e.target.value))}
+                disabled={detailLoading || catalog.clusters.length === 0}
+              >
+                {catalog.clusters.map((cluster) => (
+                  <option key={cluster.cluster_id} value={cluster.cluster_id}>
+                    {`Cluster ${cluster.cluster_id + 1} · ${cluster.size} photos`}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             {detail && (
               <div className="clusters-stat clusters-stat--current">
@@ -170,6 +177,13 @@ function ClustersPage() {
                 <strong>
                   {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
                 </strong>
+              </div>
+            )}
+
+            {!detail && detailMessage && !detailLoading && (
+              <div className="clusters-stat clusters-stat--status">
+                <span className="clusters-stat-label">Status</span>
+                <strong>{detailMessage}</strong>
               </div>
             )}
 
