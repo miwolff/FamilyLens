@@ -38,6 +38,7 @@
 - Users can browse clusters of visually similar images on a dedicated clusters page in the frontend.
 - The application should order clusters from largest to smallest so browsing starts with the biggest cluster and can continue through the next largest clusters one by one.
 - Each cluster page should open directly into the full gallery of images assigned to that cluster, sorted so the strongest matches appear first.
+- Users should be able to jump directly to any cluster from a compact picker in the cluster toolbar.
 - Users should be able to navigate from the search page to the clusters page and back again.
 - The backend should rebuild clusters automatically after each indexing run so cluster browsing stays aligned with the current image library.
 - Cluster browsing should remain local-first and use the same indexed embeddings already stored for search.
