@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import { useNavigate, useParams } from "react-router-dom";
 
 import PhotoGrid from "../components/PhotoGrid";
+import { requestJson } from "../lib/api";
 import "./ClustersPage.css";
 
 function ClustersPage({ catalogVersion }) {
@@ -25,25 +26,24 @@ function ClustersPage({ catalogVersion }) {
 
     const fetchCatalog = async () => {
       try {
-        const res = await fetch("/api/clusters");
-        if (!res.ok) {
-          throw new Error(`Cluster listing failed: ${res.statusText}`);
-        }
-        const data = await res.json();
+        const data = await requestJson("/api/clusters", {}, {
+          defaultMessage: "Unable to load clusters.",
+          timeoutMessage: "Loading clusters took too long.",
+        });
         if (!ignore) {
           setCatalog(data);
           setDetailMessage(data.message || "");
         }
-      } catch (err) {
+      } catch (error) {
         if (!ignore) {
           setCatalog({
             status: "unavailable",
-            message: err.message,
+            message: error.message,
             total_clusters: 0,
             total_photos: 0,
             clusters: [],
           });
-          setDetailMessage(err.message);
+          setDetailMessage(error.message);
         }
       }
     };
@@ -99,25 +99,17 @@ function ClustersPage({ catalogVersion }) {
       setDetailLoading(true);
       setDetailMessage("");
       try {
-        const res = await fetch(`/api/clusters/${parsedClusterId}`);
-        if (res.status === 404) {
-          throw new Error("Cluster not found.");
-        }
-        if (res.status === 409) {
-          const data = await res.json();
-          throw new Error(data.detail || "Clusters are not ready yet.");
-        }
-        if (!res.ok) {
-          throw new Error(`Cluster loading failed: ${res.statusText}`);
-        }
-        const data = await res.json();
+        const data = await requestJson(`/api/clusters/${parsedClusterId}`, {}, {
+          defaultMessage: "Unable to load the selected cluster.",
+          timeoutMessage: "Loading the selected cluster took too long.",
+        });
         if (!ignore) {
           setDetail(data);
         }
-      } catch (err) {
+      } catch (error) {
         if (!ignore) {
           setDetail(null);
-          setDetailMessage(err.message);
+          setDetailMessage(error.message);
         }
       } finally {
         if (!ignore) {
@@ -201,7 +193,11 @@ function ClustersPage({ catalogVersion }) {
           {detailMessage && !detailLoading && <div className="message">{detailMessage}</div>}
 
           {detail && !detailLoading && (
-            <PhotoGrid results={detail.photos} loading={false} />
+            <PhotoGrid
+              results={detail.photos}
+              loading={false}
+              label={`Photos in cluster ${detail.cluster_id + 1}`}
+            />
           )}
         </>
       )}

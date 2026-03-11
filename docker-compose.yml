@@ -6,7 +6,13 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
     healthcheck:
-      test: ["CMD", "bash", "-c", "cat < /dev/null > /dev/tcp/localhost/6333"]
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/localhost/6333 && printf 'GET /readyz HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -14,6 +20,8 @@ services:
   api:
     build:
       context: ./backend
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     volumes:
@@ -34,7 +42,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
   web:
     build:

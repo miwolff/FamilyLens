@@ -118,6 +118,14 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+.app-index-button:focus-visible,
+.app-nav-link:focus-visible,
+.app-cluster-count-input:focus-visible,
+.app-cleanup-toggle:has(input:focus-visible) {
+  outline: 3px solid rgba(37, 99, 235, 0.18);
+  outline-offset: 2px;
+}
+
 .app-cleanup-toggle {
   display: flex;
   align-items: center;
@@ -281,7 +289,7 @@
 
   .app-header-status-slot {
     justify-content: flex-start;
-    overflow-x: auto;
+    overflow: visible;
   }
 
   .app-header-status-slot::-webkit-scrollbar {

@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
-import ClustersPage from "./pages/ClustersPage";
 import IndexProgress from "./components/IndexProgress";
+import { ApiError, requestJson } from "./lib/api";
+import ClustersPage from "./pages/ClustersPage";
 import SearchPage from "./pages/SearchPage";
 import "./App.css";
 
 const DEFAULT_CLUSTER_COUNT = 12;
+const MAX_CLUSTER_COUNT = 1000;
+const DEFAULT_POLL_DELAY_MS = 1000;
+const HIDDEN_POLL_DELAY_MS = 4000;
+const MAX_POLL_DELAY_MS = 8000;
 
 function App() {
   const [progress, setProgress] = useState({ status: "idle", stage: "idle" });
@@ -14,7 +19,9 @@ function App() {
   const [indexMessage, setIndexMessage] = useState("");
   const [clusterCatalogVersion, setClusterCatalogVersion] = useState(0);
   const pollingRef = useRef(null);
+  const pollFailureCountRef = useRef(0);
   const previousProgressStatusRef = useRef("idle");
+  const progressStatusRef = useRef("idle");
 
   const syncClusterCount = (nextClusterCount) => {
     if (Number.isInteger(nextClusterCount) && nextClusterCount > 0) {
@@ -24,20 +31,32 @@ function App() {
 
   const stopPolling = () => {
     if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+      window.clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
   };
 
-  const fetchStatus = async () => {
-    try {
-      const res = await fetch("/api/index/status");
-      if (!res.ok) {
-        return null;
-      }
+  const getNextPollDelay = () => {
+    const baseDelay =
+      document.visibilityState === "hidden"
+        ? HIDDEN_POLL_DELAY_MS
+        : DEFAULT_POLL_DELAY_MS;
+    return Math.min(
+      baseDelay * 2 ** Math.min(pollFailureCountRef.current, 2),
+      MAX_POLL_DELAY_MS
+    );
+  };
 
-      const data = await res.json();
+  const fetchStatus = async ({ showError = false } = {}) => {
+    try {
+      const data = await requestJson("/api/index/status", {}, {
+        defaultMessage: "Unable to load indexing status.",
+        timeoutMessage: "Index status request timed out.",
+      });
+
+      pollFailureCountRef.current = 0;
       setProgress(data);
+      progressStatusRef.current = data.status;
       syncClusterCount(data.cluster_count);
       if (data.status !== "idle") {
         setIndexMessage("");
@@ -46,26 +65,48 @@ function App() {
         stopPolling();
       }
       return data;
-    } catch (_err) {
+    } catch (error) {
+      pollFailureCountRef.current += 1;
+      if (
+        showError &&
+        ["running", "cancelling"].includes(progressStatusRef.current)
+      ) {
+        setIndexMessage(
+          error instanceof ApiError
+            ? `Status updates paused: ${error.message}`
+            : "Status updates are temporarily unavailable. Retrying..."
+        );
+      }
       return null;
     }
+  };
+
+  const schedulePolling = (delay = DEFAULT_POLL_DELAY_MS) => {
+    stopPolling();
+    pollingRef.current = window.setTimeout(async () => {
+      const data = await fetchStatus({ showError: true });
+      const currentStatus = data?.status ?? progressStatusRef.current;
+      if (["running", "cancelling"].includes(currentStatus)) {
+        schedulePolling(getNextPollDelay());
+      }
+    }, delay);
   };
 
   useEffect(() => {
     const loadStatus = async () => {
       const data = await fetchStatus();
-      if (
-        data &&
-        ["running", "cancelling"].includes(data.status) &&
-        !pollingRef.current
-      ) {
-        pollingRef.current = setInterval(fetchStatus, 1000);
+      if (data && ["running", "cancelling"].includes(data.status)) {
+        schedulePolling(DEFAULT_POLL_DELAY_MS);
       }
     };
 
     void loadStatus();
     return stopPolling;
   }, []);
+
+  useEffect(() => {
+    progressStatusRef.current = progress.status;
+  }, [progress.status]);
 
   useEffect(() => {
     const previousStatus = previousProgressStatusRef.current;
@@ -79,6 +120,27 @@ function App() {
     previousProgressStatusRef.current = progress.status;
   }, [progress.status]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!["running", "cancelling"].includes(progressStatusRef.current)) {
+        return;
+      }
+      schedulePolling(
+        document.visibilityState === "hidden"
+          ? HIDDEN_POLL_DELAY_MS
+          : DEFAULT_POLL_DELAY_MS
+      );
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, []);
+
   const handleIndex = async () => {
     setIndexMessage("");
     const parsedClusterCount = Number.parseInt(clusterCount, 10);
@@ -86,51 +148,71 @@ function App() {
       setIndexMessage("Cluster count must be at least 1.");
       return;
     }
+    if (parsedClusterCount > MAX_CLUSTER_COUNT) {
+      setIndexMessage(`Cluster count must be ${MAX_CLUSTER_COUNT} or less.`);
+      return;
+    }
 
     try {
-      const res = await fetch("/api/index", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cleanup,
-          cluster_count: parsedClusterCount,
-        }),
-      });
-      if (res.status === 409) {
+      const data = await requestJson(
+        "/api/index",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cleanup,
+            cluster_count: parsedClusterCount,
+          }),
+        },
+        {
+          defaultMessage: "Unable to start indexing.",
+          timeoutMessage: "Starting indexing took too long. Try again.",
+        }
+      );
+
+      pollFailureCountRef.current = 0;
+      setProgress(data);
+      progressStatusRef.current = data.status;
+      syncClusterCount(data.cluster_count);
+      stopPolling();
+      schedulePolling(DEFAULT_POLL_DELAY_MS);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
         setIndexMessage("Indexing is already in progress.");
-        const data = await fetchStatus();
-        if (
-          data &&
-          ["running", "cancelling"].includes(data.status) &&
-          !pollingRef.current
-        ) {
-          pollingRef.current = setInterval(fetchStatus, 1000);
+        const data = await fetchStatus({ showError: true });
+        if (data && ["running", "cancelling"].includes(data.status)) {
+          schedulePolling(DEFAULT_POLL_DELAY_MS);
         }
         return;
       }
-      if (!res.ok) {
-        throw new Error(`Indexing failed: ${res.statusText}`);
-      }
 
-      const data = await res.json();
-      setProgress(data);
-      syncClusterCount(data.cluster_count);
-      stopPolling();
-      pollingRef.current = setInterval(fetchStatus, 1000);
-    } catch (err) {
-      setIndexMessage(`Error: ${err.message}`);
+      setIndexMessage(error.message);
     }
   };
 
   const handleCancel = async () => {
     try {
-      await fetch("/api/index/cancel", { method: "POST" });
+      const data = await requestJson(
+        "/api/index/cancel",
+        { method: "POST" },
+        {
+          defaultMessage: "Unable to cancel indexing.",
+          timeoutMessage: "Cancel request timed out.",
+        }
+      );
+
+      progressStatusRef.current = data.status;
+      syncClusterCount(data.cluster_count);
+      setIndexMessage("");
       setProgress((currentProgress) => ({
         ...currentProgress,
-        status: "cancelling",
+        status: data.status ?? "cancelling",
       }));
-    } catch (_err) {
-      // Ignore transient cancel errors.
+      if (["running", "cancelling"].includes(data.status)) {
+        schedulePolling(DEFAULT_POLL_DELAY_MS);
+      }
+    } catch (error) {
+      setIndexMessage(error.message);
     }
   };
 
@@ -176,12 +258,16 @@ function App() {
             {indexing ? "Indexing..." : "Index Photos"}
           </button>
 
-          <label className="app-cluster-count-control" htmlFor="cluster-count-input">
+          <label
+            className="app-cluster-count-control"
+            htmlFor="cluster-count-input"
+          >
             <span>Clusters</span>
             <input
               id="cluster-count-input"
               type="number"
               min="1"
+              max={MAX_CLUSTER_COUNT}
               step="1"
               inputMode="numeric"
               className="app-cluster-count-input"

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import PhotoGrid from "../components/PhotoGrid";
 import SearchBar from "../components/SearchBar";
+import { requestJson } from "../lib/api";
 import "./SearchPage.css";
 
 function SearchPage() {
@@ -10,24 +11,32 @@ function SearchPage() {
   const [query, setQuery] = useState("");
 
   const handleSearch = async (searchQuery) => {
-    if (!searchQuery.trim()) return;
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) return;
+
     setLoading(true);
     setMessage("");
-    setQuery(searchQuery);
+    setQuery(normalizedQuery);
     try {
-      const res = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery, limit: 40 }),
-      });
-      if (!res.ok) throw new Error(`Search failed: ${res.statusText}`);
-      const data = await res.json();
+      const data = await requestJson(
+        "/api/search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: normalizedQuery, limit: 40 }),
+        },
+        {
+          defaultMessage: "Unable to run the search.",
+          timeoutMessage: "Search took too long. Try a more specific query.",
+        }
+      );
+
       setResults(data.results);
       if (data.results.length === 0) {
         setMessage("No matching photos found. Try a different query.");
       }
-    } catch (err) {
-      setMessage(`Error: ${err.message}`);
+    } catch (error) {
+      setMessage(error.message);
       setResults([]);
     } finally {
       setLoading(false);
@@ -38,7 +47,7 @@ function SearchPage() {
     <div className="search-page">
       <SearchBar onSearch={handleSearch} loading={loading} />
 
-      <div className="search-page-summary">
+      <div className="search-page-summary" aria-live="polite">
         {query && results.length > 0 && (
           <p className="results-count">
             {results.length} results for &ldquo;{query}&rdquo;
@@ -47,7 +56,7 @@ function SearchPage() {
         {message && <div className="message">{message}</div>}
       </div>
 
-      <PhotoGrid results={results} loading={loading} />
+      <PhotoGrid results={results} loading={loading} label="Search results" />
     </div>
   );
 }
