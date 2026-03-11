@@ -5,7 +5,7 @@ import IndexProgress from "./components/IndexProgress";
 import SearchPage from "./pages/SearchPage";
 import "./App.css";
 
-const DEFAULT_CLUSTER_COUNT = 24;
+const DEFAULT_CLUSTER_COUNT = 12;
 
 function App() {
   const [progress, setProgress] = useState({ status: "idle", stage: "idle" });
@@ -135,15 +135,47 @@ function App() {
   };
 
   const indexing = ["running", "cancelling"].includes(progress.status);
+  const hasHeaderStatus = progress.status !== "idle" || Boolean(indexMessage);
 
   return (
     <div className="app">
       <header className="app-header">
-        <div className="app-brand">
-          <h1>FamilyLens</h1>
+        <div className="app-header-primary">
+          <div className="app-brand">
+            <h1>FamilyLens</h1>
+          </div>
+
+          <nav className="app-nav" aria-label="Primary">
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                isActive ? "app-nav-link app-nav-link--active" : "app-nav-link"
+              }
+            >
+              Search
+            </NavLink>
+            <NavLink
+              to="/clusters"
+              className={({ isActive }) =>
+                isActive ? "app-nav-link app-nav-link--active" : "app-nav-link"
+              }
+            >
+              Clusters
+            </NavLink>
+          </nav>
         </div>
 
-        <div className="app-top-controls">
+        <div className="app-header-actions">
+          <button
+            type="button"
+            className="app-index-button"
+            onClick={handleIndex}
+            disabled={indexing}
+          >
+            {indexing ? "Indexing..." : "Index Photos"}
+          </button>
+
           <label className="app-cluster-count-control" htmlFor="cluster-count-input">
             <span>Clusters</span>
             <input
@@ -160,48 +192,29 @@ function App() {
             />
           </label>
 
-          <label className="app-cleanup-toggle" title="Remove deleted files from index">
+          <label className="app-cleanup-toggle" title="Remove deleted">
             <input
               type="checkbox"
               checked={cleanup}
               onChange={(e) => setCleanup(e.target.checked)}
               disabled={indexing}
             />
-            <span>Remove deleted files</span>
+            <span>Remove deleted</span>
           </label>
-
-          <button
-            type="button"
-            className="app-index-button"
-            onClick={handleIndex}
-            disabled={indexing}
-          >
-            {indexing ? "Indexing..." : "Index Photos"}
-          </button>
-
-          <IndexProgress progress={progress} onCancel={handleCancel} />
-          {indexMessage && <div className="app-index-note">{indexMessage}</div>}
         </div>
 
-        <nav className="app-nav" aria-label="Primary">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              isActive ? "app-nav-link app-nav-link--active" : "app-nav-link"
+        <div className="app-header-status" aria-live="polite">
+          <div
+            className={
+              hasHeaderStatus
+                ? "app-header-status-slot"
+                : "app-header-status-slot app-header-status-slot--empty"
             }
           >
-            Search
-          </NavLink>
-          <NavLink
-            to="/clusters"
-            className={({ isActive }) =>
-              isActive ? "app-nav-link app-nav-link--active" : "app-nav-link"
-            }
-          >
-            Clusters
-          </NavLink>
-        </nav>
+            <IndexProgress progress={progress} onCancel={handleCancel} />
+            {indexMessage && <div className="app-index-note">{indexMessage}</div>}
+          </div>
+        </div>
       </header>
 
       <main className="app-main">
