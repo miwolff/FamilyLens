@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import IndexProgress from "../components/IndexProgress";
 import PhotoGrid from "../components/PhotoGrid";
 import SearchBar from "../components/SearchBar";
+import "./SearchPage.css";
 
 function SearchPage() {
-  const navigate = useNavigate();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ status: "idle", stage: "idle" });
@@ -117,29 +116,31 @@ function SearchPage() {
   const indexing = ["running", "cancelling"].includes(progress.status);
 
   return (
-    <>
+    <div className="search-page">
       <SearchBar
         onSearch={handleSearch}
         onIndex={handleIndex}
-        onBrowseClusters={() => navigate("/clusters")}
         loading={loading}
         indexing={indexing}
         cleanup={cleanup}
         onCleanupChange={setCleanup}
       />
 
-      <IndexProgress progress={progress} onCancel={handleCancel} />
+      <div className="search-page-meta">
+        <IndexProgress progress={progress} onCancel={handleCancel} />
 
-      {message && <div className="message">{message}</div>}
-
-      {query && results.length > 0 && (
-        <p className="results-count">
-          {results.length} results for &ldquo;{query}&rdquo;
-        </p>
-      )}
+        <div className="search-page-summary">
+          {query && results.length > 0 && (
+            <p className="results-count">
+              {results.length} results for &ldquo;{query}&rdquo;
+            </p>
+          )}
+          {message && <div className="message">{message}</div>}
+        </div>
+      </div>
 
       <PhotoGrid results={results} loading={loading} />
-    </>
+    </div>
   );
 }
 
