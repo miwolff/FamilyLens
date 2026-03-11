@@ -588,11 +588,7 @@ class TestClusteringService:
             ),
         ]
 
-        with patch.object(clustering_service.settings, "cluster_count", 2), patch.object(
-            clustering_service.settings,
-            "cluster_representative_count",
-            2,
-        ):
+        with patch.object(clustering_service.settings, "cluster_count", 2):
             result = clustering_service.rebuild_clusters()
 
         assert result.total_clusters == 2
@@ -601,7 +597,6 @@ class TestClusteringService:
         cluster_one_updates = [u for u in updates if u.cluster_id == 1]
         assert len(cluster_zero_updates) == 3
         assert len(cluster_one_updates) == 1
-        assert sum(u.cluster_representative_rank is not None for u in updates) == 3
 
     @patch("app.services.clustering_service.qdrant_service.scroll_indexed_points")
     def test_get_cluster_catalog_reports_unavailable_without_payloads(
@@ -629,7 +624,7 @@ class TestClusteringService:
         self,
         mock_scroll,
     ):
-        """Cluster detail exposes navigation and representative-first ordering."""
+        """Cluster detail exposes navigation and similarity ordering."""
         from app.services import clustering_service, qdrant_service
 
         all_points = [
@@ -639,7 +634,6 @@ class TestClusteringService:
                 filename="a.jpg",
                 cluster_id=0,
                 cluster_similarity=0.99,
-                cluster_representative_rank=1,
             ),
             qdrant_service.IndexedPoint(
                 point_id="b",
@@ -647,7 +641,6 @@ class TestClusteringService:
                 filename="b.jpg",
                 cluster_id=0,
                 cluster_similarity=0.8,
-                cluster_representative_rank=None,
             ),
             qdrant_service.IndexedPoint(
                 point_id="c",
@@ -655,7 +648,6 @@ class TestClusteringService:
                 filename="c.jpg",
                 cluster_id=1,
                 cluster_similarity=0.95,
-                cluster_representative_rank=1,
             ),
         ]
         cluster_zero_points = all_points[:2]
@@ -667,7 +659,6 @@ class TestClusteringService:
         assert detail.previous_cluster_id is None
         assert detail.next_cluster_id == 1
         assert detail.photos[0].file_path == "a.jpg"
-        assert detail.representative_photos[0].file_path == "a.jpg"
 
 
 class TestClustersRouter:
@@ -703,13 +694,6 @@ class TestClustersRouter:
                 clustering_service.ClusterSummaryData(
                     cluster_id=0,
                     size=3,
-                    representative_photos=[
-                        clustering_service.ClusterPhotoData(
-                            file_path="a.jpg",
-                            filename="a.jpg",
-                            score=0.99,
-                        )
-                    ],
                 )
             ],
         )

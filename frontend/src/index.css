@@ -5,8 +5,7 @@
 }
 
 :root {
-  --font-body: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   --color-ink: #10213a;
   --color-muted: #5f6f86;
   --color-primary: #2563eb;
@@ -19,11 +18,11 @@
 }
 
 body {
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   background:
-    radial-gradient(circle at top left, rgba(191, 219, 254, 0.85), transparent 26%),
-    radial-gradient(circle at top right, rgba(220, 252, 231, 0.6), transparent 22%),
-    linear-gradient(180deg, #f8fbff 0%, #eef2f7 56%, #edf1f6 100%);
+    radial-gradient(circle at top left, rgba(191, 219, 254, 0.65), transparent 22%),
+    radial-gradient(circle at top right, rgba(220, 252, 231, 0.45), transparent 18%),
+    linear-gradient(180deg, #f8fbff 0%, #eef2f7 52%, #edf1f6 100%);
   color: var(--color-ink);
   min-height: 100vh;
   line-height: 1.5;
@@ -32,9 +31,9 @@ body {
 }
 
 #root {
-  width: min(1680px, calc(100vw - 2rem));
+  width: min(1920px, calc(100vw - 1.25rem));
   margin: 0 auto;
-  padding: 1rem 0 2rem;
+  padding: 0.85rem 0 1.5rem;
 }
 
 button,
@@ -50,6 +49,6 @@ img {
 @media (max-width: 720px) {
   #root {
     width: min(100vw - 1rem, 100%);
-    padding-top: 0.75rem;
+    padding-top: 0.65rem;
   }
 }

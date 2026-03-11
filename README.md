@@ -61,7 +61,7 @@ docker compose up --build
 | `POST` | `/api/index` | Index photos from the configured folder |
 | `POST` | `/api/search` | Search photos by text query |
 | `GET` | `/api/clusters` | List image clusters from largest to smallest |
-| `GET` | `/api/clusters/{cluster_id}` | Get representatives and gallery for one cluster |
+| `GET` | `/api/clusters/{cluster_id}` | Get one cluster gallery |
 | `GET` | `/api/photos/{path}` | Serve a photo file |
 | `GET` | `/api/status` | Get indexing status |
 | `GET` | `/health` | Health check |
@@ -175,7 +175,7 @@ npm run dev
 
 - Clusters are rebuilt automatically after each indexing run.
 - The cluster browser sorts clusters by size so the largest one appears first.
-- Each cluster view shows a few representative images and the full gallery for that cluster.
+- Each cluster view opens directly into the full gallery for that cluster, with the strongest matches shown first.
 
 ## Supported Formats
 

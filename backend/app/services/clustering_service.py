@@ -30,7 +30,6 @@ class ClusterSummaryData:
 
     cluster_id: int
     size: int
-    representative_photos: list[ClusterPhotoData]
 
 
 @dataclass(slots=True)
@@ -52,7 +51,6 @@ class ClusterDetailData:
     total_clusters: int
     previous_cluster_id: int | None
     next_cluster_id: int | None
-    representative_photos: list[ClusterPhotoData]
     photos: list[ClusterPhotoData]
 
 
@@ -106,14 +104,10 @@ def _to_photo(point: qdrant_service.IndexedPoint) -> ClusterPhotoData:
 def _sort_cluster_members(
     points: list[qdrant_service.IndexedPoint],
 ) -> list[qdrant_service.IndexedPoint]:
-    """Sort cluster members with representatives first, then by similarity."""
+    """Sort cluster members by similarity so the strongest matches come first."""
     return sorted(
         points,
         key=lambda point: (
-            point.cluster_representative_rank is None,
-            point.cluster_representative_rank
-            if point.cluster_representative_rank is not None
-            else 10**9,
             -(point.cluster_similarity or 0.0),
             point.file_path,
         ),
@@ -123,7 +117,7 @@ def _sort_cluster_members(
 def rebuild_clusters(
     is_cancelled: Callable[[], bool] | None = None,
 ) -> ClusterBuildResult:
-    """Recompute cluster membership and representatives for all photos."""
+    """Recompute cluster membership for all photos."""
     _raise_if_cancelled(is_cancelled)
     indexed_points = qdrant_service.scroll_indexed_points(with_vectors=True)
     total_photos = len(indexed_points)
@@ -167,19 +161,6 @@ def rebuild_clusters(
     updates: list[qdrant_service.ClusterPayloadUpdate] = []
     for public_cluster_id, label in enumerate(sorted_labels):
         member_indices = members_by_label[label]
-        ranked_indices = sorted(
-            member_indices,
-            key=lambda idx: (
-                -float(similarities[idx]),
-                indexed_points[idx].file_path,
-            ),
-        )
-        representative_ranks = {
-            idx: rank + 1
-            for rank, idx in enumerate(
-                ranked_indices[: settings.cluster_representative_count]
-            )
-        }
 
         for idx in member_indices:
             updates.append(
@@ -187,7 +168,6 @@ def rebuild_clusters(
                     point_id=indexed_points[idx].point_id,
                     cluster_id=public_cluster_id,
                     cluster_similarity=float(similarities[idx]),
-                    cluster_representative_rank=representative_ranks.get(idx),
                 )
             )
 
@@ -231,24 +211,10 @@ def get_cluster_catalog() -> ClusterCatalogData:
     summaries: list[ClusterSummaryData] = []
     for cluster_id in sorted(clusters):
         members = _sort_cluster_members(clusters[cluster_id])
-        representatives = [
-            _to_photo(point)
-            for point in members
-            if point.cluster_representative_rank is not None
-        ]
-        if not representatives:
-            representatives = [
-                _to_photo(point)
-                for point in members[: settings.cluster_representative_count]
-            ]
-
         summaries.append(
             ClusterSummaryData(
                 cluster_id=cluster_id,
                 size=len(members),
-                representative_photos=representatives[
-                    : settings.cluster_representative_count
-                ],
             )
         )
 
@@ -261,7 +227,7 @@ def get_cluster_catalog() -> ClusterCatalogData:
 
 
 def get_cluster_detail(cluster_id: int) -> ClusterDetailData:
-    """Return one cluster with representatives and the full gallery."""
+    """Return one cluster with the full gallery."""
     catalog = get_cluster_catalog()
     if catalog.status != "ready":
         raise ValueError(catalog.status)
@@ -278,17 +244,6 @@ def get_cluster_detail(cluster_id: int) -> ClusterDetailData:
     if not members:
         raise KeyError(cluster_id)
 
-    representative_photos = [
-        _to_photo(point)
-        for point in members
-        if point.cluster_representative_rank is not None
-    ]
-    if not representative_photos:
-        representative_photos = [
-            _to_photo(point)
-            for point in members[: settings.cluster_representative_count]
-        ]
-
     return ClusterDetailData(
         cluster_id=cluster_id,
         size=len(members),
@@ -299,8 +254,5 @@ def get_cluster_detail(cluster_id: int) -> ClusterDetailData:
             if cluster_id + 1 < catalog.total_clusters
             else None
         ),
-        representative_photos=representative_photos[
-            : settings.cluster_representative_count
-        ],
         photos=[_to_photo(point) for point in members],
     )

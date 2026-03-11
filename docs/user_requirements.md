@@ -7,6 +7,7 @@
 - The search results should be accurate and relevant, leveraging metadata and content analysis of the photos
 - The application should have a simple and intuitive user interface for searching and browsing photos
 - The frontend should look sleek, modern, and professional while prioritizing the photo gallery over interface chrome
+- The frontend should keep the top-level controls compact so the photo grids get as much viewport space as possible
 - The frontend should avoid redundant navigation and repeated buttons when the same action is already available elsewhere in the UI
 
 ## MVP (v0.1)
@@ -34,8 +35,7 @@
 
 - Users can browse clusters of visually similar images on a dedicated clusters page in the frontend.
 - The application should order clusters from largest to smallest so browsing starts with the biggest cluster and can continue through the next largest clusters one by one.
-- Each cluster page should show a small representative set of images that are nearest to the cluster center.
-- Each cluster page should also show the full gallery of images assigned to that cluster.
+- Each cluster page should open directly into the full gallery of images assigned to that cluster, sorted so the strongest matches appear first.
 - Users should be able to navigate from the search page to the clusters page and back again.
 - The backend should rebuild clusters automatically after each indexing run so cluster browsing stays aligned with the current image library.
 - Cluster browsing should remain local-first and use the same indexed embeddings already stored for search.

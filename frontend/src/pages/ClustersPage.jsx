@@ -135,36 +135,6 @@ function ClustersPage() {
 
   return (
     <div className="clusters-page">
-      <section className="clusters-overview">
-        <div className="clusters-overview-copy">
-          <p className="clusters-eyebrow">Largest clusters first</p>
-          <h2>Browse visually similar groups of photos</h2>
-          <p className="clusters-copy">
-            Representative photos explain the cluster quickly, then the full
-            gallery lets you stay focused on the images.
-          </p>
-        </div>
-
-        {catalog.status === "ready" && (
-          <div className="clusters-stats">
-            <div className="clusters-stat">
-              <span className="clusters-stat-label">Library</span>
-              <strong>
-                {catalog.total_clusters} clusters across {catalog.total_photos} photos
-              </strong>
-            </div>
-            {detail && (
-              <div className="clusters-stat clusters-stat--current">
-                <span className="clusters-stat-label">Current cluster</span>
-                <strong>
-                  {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
-                </strong>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
       {catalog.status !== "ready" && (
         <div className="message">
           {catalog.message || detailMessage || "Clusters are not ready yet."}
@@ -173,60 +143,59 @@ function ClustersPage() {
 
       {catalog.status === "ready" && (
         <>
-          <section className="clusters-nav-card">
-            <button
-              type="button"
-              className="btn btn-clusters-page"
-              onClick={() => handleGoToCluster(detail?.previous_cluster_id)}
-              disabled={!detail || detail.previous_cluster_id == null}
-            >
-              Previous Cluster
-            </button>
-            <div className="clusters-nav-copy">
-              {detail ? (
-                <>
-                  <strong>Cluster {currentClusterNumber}</strong>
-                  <span>Showing the next closest group in descending size order.</span>
-                </>
-              ) : (
-                <span>{detailLoading ? "Loading cluster…" : detailMessage}</span>
+          <section className="clusters-toolbar">
+            <div className="clusters-stats">
+              <div className="clusters-stat">
+                <span className="clusters-stat-label">Library</span>
+                <strong>
+                  {catalog.total_clusters} clusters · {catalog.total_photos} photos
+                </strong>
+              </div>
+              {detail && (
+                <div className="clusters-stat clusters-stat--current">
+                  <span className="clusters-stat-label">Current cluster</span>
+                  <strong>
+                    {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
+                  </strong>
+                </div>
               )}
             </div>
-            <button
-              type="button"
-              className="btn btn-clusters-page"
-              onClick={() => handleGoToCluster(detail?.next_cluster_id)}
-              disabled={!detail || detail.next_cluster_id == null}
-            >
-              Next Cluster
-            </button>
+
+            <div className="clusters-nav-card">
+              <button
+                type="button"
+                className="btn btn-clusters-page"
+                onClick={() => handleGoToCluster(detail?.previous_cluster_id)}
+                disabled={!detail || detail.previous_cluster_id == null}
+              >
+                Previous Cluster
+              </button>
+              <div className="clusters-nav-copy">
+                {detail ? (
+                  <>
+                    <strong>Cluster {currentClusterNumber}</strong>
+                    <span>{detail.size} photos</span>
+                  </>
+                ) : (
+                  <span>{detailLoading ? "Loading cluster…" : detailMessage}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn btn-clusters-page"
+                onClick={() => handleGoToCluster(detail?.next_cluster_id)}
+                disabled={!detail || detail.next_cluster_id == null}
+              >
+                Next Cluster
+              </button>
+            </div>
           </section>
 
           {detailLoading && <div className="grid-message">Loading cluster…</div>}
           {detailMessage && !detailLoading && <div className="message">{detailMessage}</div>}
 
           {detail && !detailLoading && (
-            <>
-              <section className="clusters-section">
-                <div className="clusters-section-header">
-                  <h3>Representative Photos</h3>
-                  <p>
-                    The tightest visual matches to the cluster center.
-                  </p>
-                </div>
-                <PhotoGrid results={detail.representative_photos} loading={false} />
-              </section>
-
-              <section className="clusters-section">
-                <div className="clusters-section-header">
-                  <h3>All Photos In This Cluster</h3>
-                  <p>
-                    Sorted from the strongest match to the loosest.
-                  </p>
-                </div>
-                <PhotoGrid results={detail.photos} loading={false} />
-              </section>
-            </>
+            <PhotoGrid results={detail.photos} loading={false} />
           )}
         </>
       )}
