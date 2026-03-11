@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services import clip_service, clustering_service, qdrant_service
@@ -32,6 +32,7 @@ _progress: dict = {
     "elapsed_seconds": 0.0,
     "eta_seconds": None,
     "cluster_error": None,
+    "cluster_count": settings.cluster_count,
     "result": None,
 }
 _cancel_event = threading.Event()
@@ -43,6 +44,7 @@ class IndexRequest(BaseModel):
 
     folder: str | None = None
     cleanup: bool = False
+    cluster_count: int = Field(default=settings.cluster_count, ge=1)
 
 
 class IndexResponse(BaseModel):
@@ -70,6 +72,7 @@ class IndexStatus(BaseModel):
     elapsed_seconds: float
     eta_seconds: float | None
     cluster_error: str | None
+    cluster_count: int
     result: IndexResponse | None
 
 
@@ -92,7 +95,11 @@ def _discover_images(folder: Path) -> list[Path]:
     return sorted(set(images))
 
 
-def _run_indexing(folder: Path, cleanup: bool = False) -> None:
+def _run_indexing(
+    folder: Path,
+    cleanup: bool = False,
+    cluster_count: int = settings.cluster_count,
+) -> None:
     """Background worker: index images and update _progress after every file.
 
     Checks _cancel_event before each file so the run can be interrupted.
@@ -113,6 +120,7 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
             "elapsed_seconds": 0.0,
             "eta_seconds": None,
             "cluster_error": None,
+            "cluster_count": cluster_count,
             "result": None,
         }
     )
@@ -226,6 +234,7 @@ def _run_indexing(folder: Path, cleanup: bool = False) -> None:
         cluster_error = None
         try:
             cluster_result = clustering_service.rebuild_clusters(
+                cluster_count=cluster_count,
                 is_cancelled=_cancel_event.is_set,
             )
             total_clusters = cluster_result.total_clusters
@@ -300,12 +309,13 @@ def index_photos(
     """
     folder = Path(request.folder if request and request.folder else settings.photos_dir)
     cleanup = request.cleanup if request else False
+    cluster_count = request.cluster_count if request else settings.cluster_count
 
     if not _run_lock.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Indexing already running")
 
     _cancel_event.clear()
-    background_tasks.add_task(_run_indexing, folder, cleanup)
+    background_tasks.add_task(_run_indexing, folder, cleanup, cluster_count)
 
     return IndexStatus(
         status="running",
@@ -319,6 +329,7 @@ def index_photos(
         elapsed_seconds=0.0,
         eta_seconds=None,
         cluster_error=None,
+        cluster_count=cluster_count,
         result=None,
     )
 
@@ -339,6 +350,7 @@ async def get_index_status() -> IndexStatus:
         elapsed_seconds=p["elapsed_seconds"],
         eta_seconds=p["eta_seconds"],
         cluster_error=p["cluster_error"],
+        cluster_count=p["cluster_count"],
         result=p["result"],
     )
 
@@ -347,8 +359,14 @@ async def get_index_status() -> IndexStatus:
 async def cancel_indexing() -> dict:
     """Request cancellation of the currently running indexing job."""
     if _progress["status"] not in ("running", "cancelling"):
-        return {"status": _progress["status"]}
+        return {
+            "status": _progress["status"],
+            "cluster_count": _progress["cluster_count"],
+        }
     _cancel_event.set()
     _progress["status"] = "cancelling"
     _progress["stage"] = _progress["stage"] or "cancelling"
-    return {"status": "cancelling"}
+    return {
+        "status": "cancelling",
+        "cluster_count": _progress["cluster_count"],
+    }

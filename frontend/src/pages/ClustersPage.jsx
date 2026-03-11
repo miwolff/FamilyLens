@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { useNavigate, useParams } from "react-router-dom";
 
 import PhotoGrid from "../components/PhotoGrid";
 import "./ClustersPage.css";
 
-function ClustersPage() {
+function ClustersPage({ catalogVersion }) {
   const navigate = useNavigate();
   const { clusterId } = useParams();
 
@@ -51,7 +52,7 @@ function ClustersPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [catalogVersion]);
 
   useEffect(() => {
     let ignore = false;
@@ -82,6 +83,13 @@ function ClustersPage() {
     if (!Number.isInteger(parsedClusterId) || parsedClusterId < 0) {
       setDetail(null);
       setDetailMessage("Unknown cluster.");
+      return () => {
+        ignore = true;
+      };
+    }
+
+    if (parsedClusterId >= catalog.total_clusters) {
+      navigate(`/clusters/${catalog.clusters[0].cluster_id}`, { replace: true });
       return () => {
         ignore = true;
       };
@@ -131,7 +139,6 @@ function ClustersPage() {
     navigate(`/clusters/${nextClusterId}`);
   };
 
-  const currentClusterNumber = detail ? detail.cluster_id + 1 : null;
   const selectedClusterId = detail?.cluster_id ?? "";
 
   return (
@@ -171,15 +178,6 @@ function ClustersPage() {
               </select>
             </label>
 
-            {detail && (
-              <div className="clusters-stat clusters-stat--current">
-                <span className="clusters-stat-label">Current cluster</span>
-                <strong>
-                  {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
-                </strong>
-              </div>
-            )}
-
             {!detail && detailMessage && !detailLoading && (
               <div className="clusters-stat clusters-stat--status">
                 <span className="clusters-stat-label">Status</span>
@@ -217,3 +215,7 @@ function ClustersPage() {
 }
 
 export default ClustersPage;
+
+ClustersPage.propTypes = {
+  catalogVersion: PropTypes.number.isRequired,
+};

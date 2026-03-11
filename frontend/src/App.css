@@ -46,6 +46,38 @@
   display: none;
 }
 
+.app-cluster-count-control {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.45rem 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.app-cluster-count-input {
+  width: 4.5rem;
+  padding: 0.32rem 0.45rem;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.92);
+  color: var(--color-ink);
+  text-align: right;
+  font-size: 0.84rem;
+  font-weight: 700;
+  outline: none;
+}
+
+.app-cluster-count-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
 .app-cleanup-toggle {
   display: flex;
   align-items: center;
@@ -85,7 +117,8 @@
 }
 
 .app-index-button:disabled,
-.app-cleanup-toggle:has(input:disabled) {
+.app-cleanup-toggle:has(input:disabled),
+.app-cluster-count-control:has(input:disabled) {
   opacity: 0.6;
 }
 
@@ -171,6 +204,7 @@
   }
 
   .app-cleanup-toggle,
+  .app-cluster-count-control,
   .app-index-button,
   .app-index-note {
     justify-content: center;

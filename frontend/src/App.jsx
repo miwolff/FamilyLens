@@ -5,11 +5,22 @@ import IndexProgress from "./components/IndexProgress";
 import SearchPage from "./pages/SearchPage";
 import "./App.css";
 
+const DEFAULT_CLUSTER_COUNT = 24;
+
 function App() {
   const [progress, setProgress] = useState({ status: "idle", stage: "idle" });
   const [cleanup, setCleanup] = useState(false);
+  const [clusterCount, setClusterCount] = useState(String(DEFAULT_CLUSTER_COUNT));
   const [indexMessage, setIndexMessage] = useState("");
+  const [clusterCatalogVersion, setClusterCatalogVersion] = useState(0);
   const pollingRef = useRef(null);
+  const previousProgressStatusRef = useRef("idle");
+
+  const syncClusterCount = (nextClusterCount) => {
+    if (Number.isInteger(nextClusterCount) && nextClusterCount > 0) {
+      setClusterCount(String(nextClusterCount));
+    }
+  };
 
   const stopPolling = () => {
     if (pollingRef.current) {
@@ -27,6 +38,7 @@ function App() {
 
       const data = await res.json();
       setProgress(data);
+      syncClusterCount(data.cluster_count);
       if (data.status !== "idle") {
         setIndexMessage("");
       }
@@ -55,13 +67,34 @@ function App() {
     return stopPolling;
   }, []);
 
+  useEffect(() => {
+    const previousStatus = previousProgressStatusRef.current;
+    if (
+      previousStatus !== progress.status &&
+      ["running", "cancelling"].includes(previousStatus) &&
+      progress.status === "complete"
+    ) {
+      setClusterCatalogVersion((currentVersion) => currentVersion + 1);
+    }
+    previousProgressStatusRef.current = progress.status;
+  }, [progress.status]);
+
   const handleIndex = async () => {
     setIndexMessage("");
+    const parsedClusterCount = Number.parseInt(clusterCount, 10);
+    if (!Number.isInteger(parsedClusterCount) || parsedClusterCount < 1) {
+      setIndexMessage("Cluster count must be at least 1.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/index", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cleanup }),
+        body: JSON.stringify({
+          cleanup,
+          cluster_count: parsedClusterCount,
+        }),
       });
       if (res.status === 409) {
         setIndexMessage("Indexing is already in progress.");
@@ -81,6 +114,7 @@ function App() {
 
       const data = await res.json();
       setProgress(data);
+      syncClusterCount(data.cluster_count);
       stopPolling();
       pollingRef.current = setInterval(fetchStatus, 1000);
     } catch (err) {
@@ -110,6 +144,22 @@ function App() {
         </div>
 
         <div className="app-top-controls">
+          <label className="app-cluster-count-control" htmlFor="cluster-count-input">
+            <span>Clusters</span>
+            <input
+              id="cluster-count-input"
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              className="app-cluster-count-input"
+              value={clusterCount}
+              onChange={(e) => setClusterCount(e.target.value)}
+              onBlur={() => syncClusterCount(Number.parseInt(clusterCount, 10))}
+              disabled={indexing}
+            />
+          </label>
+
           <label className="app-cleanup-toggle" title="Remove deleted files from index">
             <input
               type="checkbox"
@@ -158,8 +208,14 @@ function App() {
         <Routes>
           <Route path="/" element={<SearchPage />} />
           <Route path="/clusters">
-            <Route index element={<ClustersPage />} />
-            <Route path=":clusterId" element={<ClustersPage />} />
+            <Route
+              index
+              element={<ClustersPage catalogVersion={clusterCatalogVersion} />}
+            />
+            <Route
+              path=":clusterId"
+              element={<ClustersPage catalogVersion={clusterCatalogVersion} />}
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
