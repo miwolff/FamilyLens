@@ -16,7 +16,6 @@ function IndexProgress({ progress, onCancel }) {
     stage,
     current,
     total,
-    indexed,
     skipped,
     errors,
     removed,
@@ -39,7 +38,7 @@ function IndexProgress({ progress, onCancel }) {
   const statusLabel = isRunning
     ? stage === "clustering"
       ? "Building clusters…"
-      : "Indexing photos…"
+      : null
     : isCancelling
     ? "Cancelling…"
     : isComplete
@@ -64,13 +63,9 @@ function IndexProgress({ progress, onCancel }) {
   }
   if (isComplete && result) {
     summary.push(`${result.total_in_collection} total`);
-    summary.push(`${result.total_clusters} clusters`);
   }
 
   const metrics = [];
-  if (indexed > 0 || isComplete) {
-    metrics.push(`${indexed} indexed`);
-  }
   if (skipped > 0 || isComplete) {
     metrics.push(`${skipped} skipped`);
   }
@@ -93,20 +88,13 @@ function IndexProgress({ progress, onCancel }) {
   return (
     <div className={`index-progress index-progress--${status}`}>
       <div className="index-progress-main">
-        <span className="index-progress-title">{statusLabel}</span>
+        {statusLabel && (
+          <span className="index-progress-title">{statusLabel}</span>
+        )}
         {summary.length > 0 && (
           <span className="index-progress-summary">{summary.join(" · ")}</span>
         )}
       </div>
-
-      {(isRunning || isCancelling || isComplete) && (
-        <div className="index-progress-bar-wrapper" aria-hidden="true">
-          <div
-            className="index-progress-bar-fill"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      )}
 
       {metrics.length > 0 && (
         <div className="index-progress-counts">

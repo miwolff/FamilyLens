@@ -162,7 +162,9 @@ function ClustersPage({ catalogVersion }) {
             </button>
 
             <label className="clusters-picker" htmlFor="cluster-picker">
-              <span className="clusters-picker-label">Jump to</span>
+              <span className="clusters-picker-label">
+                {catalog.total_clusters} clusters · {catalog.total_photos} photos
+              </span>
               <select
                 id="cluster-picker"
                 className="clusters-picker-select"
@@ -184,13 +186,6 @@ function ClustersPage({ catalogVersion }) {
                 <strong>{detailMessage}</strong>
               </div>
             )}
-
-            <div className="clusters-stat">
-              <span className="clusters-stat-label">Library</span>
-              <strong>
-                {catalog.total_clusters} clusters · {catalog.total_photos} photos
-              </strong>
-            </div>
 
             <button
               type="button"

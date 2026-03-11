@@ -262,7 +262,7 @@ class TestIndexRouter:
                 "elapsed_seconds": 0.0,
                 "eta_seconds": None,
                 "cluster_error": None,
-                "cluster_count": 24,
+                "cluster_count": 12,
                 "result": None,
             }
         )
@@ -340,7 +340,7 @@ class TestIndexRouter:
         response = client.post("/api/index/cancel")
         assert response.status_code == 200
         assert response.json()["status"] == "idle"
-        assert response.json()["cluster_count"] == 24
+        assert response.json()["cluster_count"] == 12
 
     @patch("app.services.clip_service._model", new=MagicMock())
     @patch("app.services.qdrant_service.get_client")
