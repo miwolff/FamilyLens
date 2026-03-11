@@ -5,6 +5,7 @@
 }
 
 .btn-clusters-page {
+  flex: 0 0 auto;
   background: rgba(255, 255, 255, 0.74);
   color: var(--color-primary-strong);
   border: 1px solid rgba(191, 219, 254, 0.78);
@@ -14,8 +15,7 @@
   background: rgba(219, 234, 254, 0.92);
 }
 
-.clusters-toolbar,
-.clusters-nav-card {
+.clusters-toolbar {
   border-radius: 1.25rem;
   padding: 0.85rem;
   border: 1px solid var(--color-border);
@@ -25,19 +25,16 @@
 
 .clusters-toolbar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.75rem;
-}
-
-.clusters-stats {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .clusters-stat {
+  flex: 0 0 auto;
   min-width: 14rem;
-  padding: 0.8rem 0.9rem;
+  padding: 0.7rem 0.85rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(191, 219, 254, 0.74);
   background: rgba(239, 246, 255, 0.86);
@@ -58,35 +55,21 @@
   margin-bottom: 0.35rem;
 }
 
-.clusters-nav-card {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 0.9rem;
-}
-
 .clusters-nav-copy {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   color: var(--color-muted);
+  flex: 1 0 10rem;
+  min-width: 10rem;
+}
+
+.clusters-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 @media (max-width: 720px) {
-  .clusters-stats {
-    justify-content: stretch;
-  }
-
   .clusters-stat {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .clusters-nav-card {
-    grid-template-columns: 1fr;
-  }
-
-  .clusters-nav-copy {
-    order: -1;
+    min-width: 13rem;
   }
 }

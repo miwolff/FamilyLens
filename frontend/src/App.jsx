@@ -128,6 +128,9 @@ function App() {
           >
             {indexing ? "Indexing..." : "Index Photos"}
           </button>
+
+          <IndexProgress progress={progress} onCancel={handleCancel} />
+          {indexMessage && <div className="app-index-note">{indexMessage}</div>}
         </div>
 
         <nav className="app-nav" aria-label="Primary">
@@ -150,13 +153,6 @@ function App() {
           </NavLink>
         </nav>
       </header>
-
-      {(progress.status !== "idle" || indexMessage) && (
-        <section className="app-status-panel">
-          <IndexProgress progress={progress} onCancel={handleCancel} />
-          {indexMessage && <div className="message">{indexMessage}</div>}
-        </section>
-      )}
 
       <main className="app-main">
         <Routes>

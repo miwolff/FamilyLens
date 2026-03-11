@@ -48,72 +48,83 @@ function IndexProgress({ progress, onCancel }) {
     ? "Indexing cancelled"
     : "Indexing failed";
 
+  const summary = [];
+  if (total > 0 && (isRunning || isCancelling)) {
+    summary.push(`${current}/${total}`);
+    summary.push(`${pct}%`);
+  } else if (stage === "clustering" && (isRunning || isCancelling)) {
+    summary.push("100%");
+  }
+
+  if (elapsed) {
+    summary.push(elapsed);
+  }
+  if (eta && isRunning) {
+    summary.push(`${eta} left`);
+  }
+  if (isComplete && result) {
+    summary.push(`${result.total_in_collection} total`);
+    summary.push(`${result.total_clusters} clusters`);
+  }
+
+  const metrics = [];
+  if (indexed > 0 || isComplete) {
+    metrics.push(`${indexed} indexed`);
+  }
+  if (skipped > 0 || isComplete) {
+    metrics.push(`${skipped} skipped`);
+  }
+  if (removed > 0) {
+    metrics.push(`${removed} removed`);
+  }
+  if (errors > 0 || isError) {
+    metrics.push(`${errors} errors`);
+  }
+  if ((isRunning || isCancelling) && total === 0) {
+    metrics.push("Discovering files");
+  }
+  if (stage === "clustering") {
+    metrics.push("Updating clusters");
+  }
+  if (cluster_error) {
+    metrics.push("Clusters unavailable");
+  }
+
   return (
     <div className={`index-progress index-progress--${status}`}>
-      <div className="index-progress-header">
+      <div className="index-progress-main">
         <span className="index-progress-title">{statusLabel}</span>
-
-        {(isRunning || isCancelling) && (
-          <button
-            className="btn btn-cancel"
-            onClick={onCancel}
-            disabled={isCancelling}
-          >
-            {isCancelling ? "Cancelling…" : "Cancel"}
-          </button>
+        {summary.length > 0 && (
+          <span className="index-progress-summary">{summary.join(" · ")}</span>
         )}
       </div>
 
-      {total > 0 && (
-        <>
-          <div className="index-progress-bar-wrapper">
-            <div
-              className="index-progress-bar-fill"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <div className="index-progress-timing">
-            <span>{current} / {total} files — {pct}%</span>
-            <span className="index-progress-time">
-              {elapsed && `Elapsed: ${elapsed}`}
-              {eta && isRunning && ` · ~${eta} remaining`}
-            </span>
-          </div>
-        </>
-      )}
-
-      {total === 0 && (isRunning || isCancelling) && (
-        <div className="index-progress-timing">
-          <span>Discovering files…</span>
+      {(isRunning || isCancelling || isComplete) && (
+        <div className="index-progress-bar-wrapper" aria-hidden="true">
+          <div
+            className="index-progress-bar-fill"
+            style={{ width: `${pct}%` }}
+          />
         </div>
       )}
 
-      {stage === "clustering" && (
-        <div className="index-progress-timing">
-          <span>Embeddings are indexed. Building image clusters now…</span>
-          <span className="index-progress-time">
-            {elapsed && `Elapsed: ${elapsed}`}
-          </span>
+      {metrics.length > 0 && (
+        <div className="index-progress-counts">
+          {metrics.map((metric) => (
+            <span key={metric}>{metric}</span>
+          ))}
         </div>
       )}
 
-      <div className="index-progress-counts">
-        <span>{indexed} indexed</span>
-        <span>{skipped} skipped</span>
-        {removed > 0 && (
-          <span className="index-progress-removed">{removed} removed</span>
-        )}
-        {errors > 0 && (
-          <span className="index-progress-errors">{errors} errors</span>
-        )}
-        {isComplete && result && (
-          <span className="index-progress-total">
-            {result.total_in_collection} total in library · {result.total_clusters} clusters
-          </span>
-        )}
-      </div>
-
-      {cluster_error && <div className="index-progress-warning">Clusters unavailable: {cluster_error}</div>}
+      {(isRunning || isCancelling) && (
+        <button
+          className="btn btn-cancel"
+          onClick={onCancel}
+          disabled={isCancelling}
+        >
+          {isCancelling ? "Cancelling…" : "Cancel"}
+        </button>
+      )}
     </div>
   );
 }

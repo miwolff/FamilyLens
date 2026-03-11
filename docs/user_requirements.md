@@ -8,6 +8,8 @@
 - The application should have a simple and intuitive user interface for searching and browsing photos
 - The frontend should look sleek, modern, and professional while prioritizing the photo gallery over interface chrome
 - The frontend should keep the top-level controls compact so the photo grids get as much viewport space as possible
+- Ongoing and completed indexing status should stay in the shared top header instead of consuming a separate content row
+- Cluster navigation and cluster/library summary info should stay in one compact horizontal toolbar row when space allows
 - The frontend should avoid redundant navigation and repeated buttons when the same action is already available elsewhere in the UI
 
 ## MVP (v0.1)

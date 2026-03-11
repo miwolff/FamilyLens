@@ -144,51 +144,50 @@ function ClustersPage() {
       {catalog.status === "ready" && (
         <>
           <section className="clusters-toolbar">
-            <div className="clusters-stats">
-              <div className="clusters-stat">
-                <span className="clusters-stat-label">Library</span>
-                <strong>
-                  {catalog.total_clusters} clusters · {catalog.total_photos} photos
-                </strong>
-              </div>
-              {detail && (
-                <div className="clusters-stat clusters-stat--current">
-                  <span className="clusters-stat-label">Current cluster</span>
-                  <strong>
-                    {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
-                  </strong>
-                </div>
+            <button
+              type="button"
+              className="btn btn-clusters-page"
+              onClick={() => handleGoToCluster(detail?.previous_cluster_id)}
+              disabled={!detail || detail.previous_cluster_id == null}
+            >
+              Previous Cluster
+            </button>
+
+            <div className="clusters-nav-copy">
+              {detail ? (
+                <>
+                  <strong>Cluster {currentClusterNumber}</strong>
+                  <span>{detail.size} photos</span>
+                </>
+              ) : (
+                <span>{detailLoading ? "Loading cluster…" : detailMessage}</span>
               )}
             </div>
 
-            <div className="clusters-nav-card">
-              <button
-                type="button"
-                className="btn btn-clusters-page"
-                onClick={() => handleGoToCluster(detail?.previous_cluster_id)}
-                disabled={!detail || detail.previous_cluster_id == null}
-              >
-                Previous Cluster
-              </button>
-              <div className="clusters-nav-copy">
-                {detail ? (
-                  <>
-                    <strong>Cluster {currentClusterNumber}</strong>
-                    <span>{detail.size} photos</span>
-                  </>
-                ) : (
-                  <span>{detailLoading ? "Loading cluster…" : detailMessage}</span>
-                )}
+            {detail && (
+              <div className="clusters-stat clusters-stat--current">
+                <span className="clusters-stat-label">Current cluster</span>
+                <strong>
+                  {currentClusterNumber} of {detail.total_clusters} · {detail.size} photos
+                </strong>
               </div>
-              <button
-                type="button"
-                className="btn btn-clusters-page"
-                onClick={() => handleGoToCluster(detail?.next_cluster_id)}
-                disabled={!detail || detail.next_cluster_id == null}
-              >
-                Next Cluster
-              </button>
+            )}
+
+            <div className="clusters-stat">
+              <span className="clusters-stat-label">Library</span>
+              <strong>
+                {catalog.total_clusters} clusters · {catalog.total_photos} photos
+              </strong>
             </div>
+
+            <button
+              type="button"
+              className="btn btn-clusters-page"
+              onClick={() => handleGoToCluster(detail?.next_cluster_id)}
+              disabled={!detail || detail.next_cluster_id == null}
+            >
+              Next Cluster
+            </button>
           </section>
 
           {detailLoading && <div className="grid-message">Loading cluster…</div>}

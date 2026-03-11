@@ -37,8 +37,13 @@
   justify-self: center;
   align-items: center;
   gap: 0.65rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   min-width: 0;
+}
+
+.app-top-controls::-webkit-scrollbar {
+  display: none;
 }
 
 .app-cleanup-toggle {
@@ -84,10 +89,16 @@
   opacity: 0.6;
 }
 
-.app-status-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+.app-index-note {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(191, 219, 254, 0.85);
+  background: rgba(239, 246, 255, 0.86);
+  border-radius: 999px;
+  color: var(--color-primary-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .app-nav {
@@ -156,12 +167,12 @@
   }
 
   .app-top-controls {
-    flex-direction: column;
-    align-items: stretch;
+    padding-bottom: 0.05rem;
   }
 
   .app-cleanup-toggle,
-  .app-index-button {
+  .app-index-button,
+  .app-index-note {
     justify-content: center;
   }
 
