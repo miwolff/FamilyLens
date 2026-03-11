@@ -19,6 +19,12 @@
   background: rgba(219, 234, 254, 0.92);
 }
 
+.btn-clusters-page:focus-visible,
+.clusters-picker-select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  outline-offset: 2px;
+}
+
 .clusters-toolbar {
   border-radius: 1.25rem;
   min-height: var(--page-toolbar-height, 4.35rem);

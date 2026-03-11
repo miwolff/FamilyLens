@@ -19,6 +19,21 @@ logger = logging.getLogger(__name__)
 _client: QdrantClient | None = None
 
 
+def _get_required_payload_string(
+    payload: dict,
+    key: str,
+    *,
+    record_id: str | int,
+) -> str:
+    """Return a non-empty string payload field or raise ValueError."""
+    value = payload.get(key)
+    if isinstance(value, str) and value:
+        return value
+    raise ValueError(
+        f"Record {record_id!s} is missing a valid '{key}' payload field"
+    )
+
+
 @dataclass(slots=True)
 class IndexedPoint:
     """Indexed photo record loaded from Qdrant."""
@@ -88,17 +103,30 @@ def _record_to_indexed_point(
     with_vectors: bool,
 ) -> IndexedPoint:
     """Convert a Qdrant record into an IndexedPoint."""
-    payload = record.payload or {}
+    payload = record.payload
+    if not payload:
+        raise ValueError(f"Record {record.id!s} has no payload")
+
     raw_vector = record.vector if with_vectors else None
     if isinstance(raw_vector, dict):
         raw_vector = next(iter(raw_vector.values()), None)
 
+    file_path = _get_required_payload_string(
+        payload,
+        "file_path",
+        record_id=record.id,
+    )
+    filename = _get_required_payload_string(
+        payload,
+        "filename",
+        record_id=record.id,
+    )
     cluster_id = payload.get("cluster_id")
     cluster_similarity = payload.get("cluster_similarity")
     return IndexedPoint(
         point_id=str(record.id),
-        file_path=str(payload.get("file_path", "")),
-        filename=str(payload.get("filename", "")),
+        file_path=file_path,
+        filename=filename,
         vector=list(raw_vector) if raw_vector is not None else None,
         cluster_id=int(cluster_id) if cluster_id is not None else None,
         cluster_similarity=(
@@ -133,8 +161,15 @@ def get_indexed_paths() -> set[str]:
         )
         points, next_offset = results
         for point in points:
-            if point.payload and "file_path" in point.payload:
-                indexed.add(point.payload["file_path"])
+            payload = point.payload or {}
+            file_path = payload.get("file_path")
+            if isinstance(file_path, str) and file_path:
+                indexed.add(file_path)
+            elif payload:
+                logger.warning(
+                    "Skipping malformed indexed path payload for point %s",
+                    point.id,
+                )
         if next_offset is None:
             break
         offset = next_offset
@@ -172,9 +207,15 @@ def scroll_indexed_points(
             with_vectors=with_vectors,
         )
         for record in records:
-            points.append(
-                _record_to_indexed_point(record, with_vectors=with_vectors)
-            )
+            try:
+                points.append(
+                    _record_to_indexed_point(
+                        record,
+                        with_vectors=with_vectors,
+                    )
+                )
+            except ValueError as exc:
+                logger.warning("Skipping malformed record from Qdrant: %s", exc)
         if next_offset is None:
             break
         offset = next_offset
@@ -253,14 +294,46 @@ def search(query_vector: list[float], limit: int) -> list[dict]:
         limit=limit,
         with_payload=True,
     )
-    return [
-        {
-            "file_path": hit.payload.get("file_path", "") if hit.payload else "",
-            "filename": hit.payload.get("filename", "") if hit.payload else "",
-            "score": hit.score,
-        }
-        for hit in results.points
-    ]
+    formatted_results: list[dict] = []
+    for hit in results.points:
+        payload = hit.payload
+        if not payload:
+            logger.warning(
+                "Skipping search result %s with missing payload",
+                hit.id,
+            )
+            continue
+
+        try:
+            file_path = _get_required_payload_string(
+                payload,
+                "file_path",
+                record_id=hit.id,
+            )
+            filename = _get_required_payload_string(
+                payload,
+                "filename",
+                record_id=hit.id,
+            )
+        except ValueError as exc:
+            logger.warning("Skipping malformed search result: %s", exc)
+            continue
+
+        formatted_results.append(
+            {
+                "file_path": file_path,
+                "filename": filename,
+                "score": hit.score,
+            }
+        )
+    return formatted_results
+
+
+def check_health() -> bool:
+    """Return whether the Qdrant collection is reachable."""
+    client = get_client()
+    client.get_collection(settings.collection_name)
+    return True
 
 
 def delete_by_paths(paths: list[str]) -> int:

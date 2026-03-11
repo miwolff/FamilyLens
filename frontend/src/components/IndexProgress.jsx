@@ -85,8 +85,15 @@ function IndexProgress({ progress, onCancel }) {
     metrics.push("Clusters unavailable");
   }
 
+  const progressLabel = statusLabel || "Indexing status";
+
   return (
-    <div className={`index-progress index-progress--${status}`}>
+    <div
+      className={`index-progress index-progress--${status}`}
+      role="status"
+      aria-live="polite"
+      aria-label={progressLabel}
+    >
       <div className="index-progress-main">
         {statusLabel && (
           <span className="index-progress-title">{statusLabel}</span>
@@ -106,9 +113,11 @@ function IndexProgress({ progress, onCancel }) {
 
       {(isRunning || isCancelling) && (
         <button
+          type="button"
           className="btn btn-cancel"
           onClick={onCancel}
           disabled={isCancelling}
+          aria-label={isCancelling ? "Cancelling indexing" : "Cancel indexing"}
         >
           {isCancelling ? "Cancelling…" : "Cancel"}
         </button>

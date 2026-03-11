@@ -40,6 +40,9 @@ PHOTOS_DIR=/path/to/your/photos
 
 You can give up to 5 photo directories in the `.env` file that all will be mounted into child folders of the `photos` directory of the api container. See .env.example and backend dockerfile.
 
+Optional backend tuning values such as cluster count, search limit, and log level
+are documented in `.env.example`.
+
 3. Start all services:
 
 ```bash
@@ -59,12 +62,14 @@ docker compose up --build
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/index` | Index photos from the configured folder |
+| `GET` | `/api/index/status` | Get live indexing progress |
+| `POST` | `/api/index/cancel` | Cancel the active indexing run |
 | `POST` | `/api/search` | Search photos by text query |
 | `GET` | `/api/clusters` | List image clusters from largest to smallest |
 | `GET` | `/api/clusters/{cluster_id}` | Get one cluster gallery |
 | `GET` | `/api/photos/{path}` | Serve a photo file |
-| `GET` | `/api/status` | Get indexing status |
-| `GET` | `/health` | Health check |
+| `GET` | `/api/status` | Get indexed photo count and collection name |
+| `GET` | `/health` | Dependency-aware health check |
 
 **Example — search:**
 ```bash
@@ -76,6 +81,11 @@ curl -X POST http://localhost:8000/api/search \
 **Example — index:**
 ```bash
 curl -X POST http://localhost:8000/api/index
+```
+
+**Example — live indexing status:**
+```bash
+curl http://localhost:8000/api/index/status
 ```
 
 **Example — clusters:**
@@ -162,9 +172,35 @@ uv run pytest tests/ -v
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
+
+## Configuration
+
+Backend configuration is read from environment variables with the
+`FAMILYLENS_` prefix.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FAMILYLENS_CLUSTER_COUNT` | `12` | Default number of clusters to rebuild after indexing |
+| `FAMILYLENS_MAX_CLUSTER_COUNT` | `1000` | Upper bound the API accepts for client-supplied cluster counts |
+| `FAMILYLENS_SEARCH_DEFAULT_LIMIT` | `20` | Default search result limit |
+| `FAMILYLENS_LOG_LEVEL` | `INFO` | Backend log verbosity |
+
+The index API can optionally target a subfolder, but it is restricted to paths
+inside the configured `/photos` mount tree. Requests outside that root are
+rejected.
+
+## Health And Storage
+
+- `/health` now reports dependency status for the CLIP model and Qdrant. It
+  returns HTTP 200 only when both are ready, and HTTP 503 when the API is
+  degraded.
+- Docker Compose waits for Qdrant's `/readyz` endpoint before starting the API.
+- Indexed vectors are stored in the `qdrant_storage` Docker volume. If that
+  volume is removed, the index can be rebuilt from the source photo folders by
+  running indexing again.
 
 ## System Requirements
 

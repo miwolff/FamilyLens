@@ -115,6 +115,11 @@
   color: #fff;
 }
 
+.btn-cancel:focus-visible {
+  outline: 3px solid rgba(239, 68, 68, 0.2);
+  outline-offset: 2px;
+}
+
 .btn-cancel:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -123,6 +128,24 @@
 @media (max-width: 720px) {
   .index-progress {
     min-width: 0;
+    width: 100%;
+    height: auto;
     padding: 0.35rem 0.5rem;
+    flex-wrap: wrap;
+    white-space: normal;
+    align-items: flex-start;
+  }
+
+  .index-progress-main {
+    width: 100%;
+  }
+
+  .index-progress-counts {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .btn-cancel {
+    margin-left: auto;
   }
 }
