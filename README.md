@@ -38,7 +38,7 @@ cp .env.example .env
 PHOTOS_DIR=/path/to/your/photos
 ```
 
-You can give up to 5 photo directories in the `.env` file that all will be mounted into child folders of the `photos` directory of the api container. See .env.example and backend dockerfile.
+You can give up to 5 photo directories in the `.env` file that all will be mounted into child folders of the `photos` directory of the api container. See .env.example and docker-compose.yml.
 
 Optional backend tuning values such as cluster count, search limit, and log level
 are documented in `.env.example`.
@@ -240,3 +240,7 @@ rejected.
 
 JPEG (`.jpg`, `.jpeg`), PNG (`.png`), Adobe DNG (`.dng`), and Nikon
 NEF (`.nef`)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
