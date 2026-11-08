@@ -187,9 +187,11 @@ def rebuild_clusters(
 
 
 def get_cluster_catalog() -> ClusterCatalogData:
-    """Return cluster summaries for the browse UI."""
-    indexed_points = qdrant_service.scroll_indexed_points(with_vectors=False)
-    total_photos = len(indexed_points)
+    """Return cluster summaries for the browse UI.
+
+    Uses Qdrant count and facet queries so no point payloads are loaded.
+    """
+    total_photos = qdrant_service.get_indexed_count()
     if total_photos == 0:
         return ClusterCatalogData(
             status="empty",
@@ -198,7 +200,7 @@ def get_cluster_catalog() -> ClusterCatalogData:
             clusters=[],
         )
 
-    if any(point.cluster_id is None for point in indexed_points):
+    if qdrant_service.count_unclustered() > 0:
         return ClusterCatalogData(
             status="unavailable",
             total_clusters=0,
@@ -206,20 +208,11 @@ def get_cluster_catalog() -> ClusterCatalogData:
             clusters=[],
         )
 
-    clusters: dict[int, list[qdrant_service.IndexedPoint]] = defaultdict(list)
-    for point in indexed_points:
-        clusters[point.cluster_id or 0].append(point)
-
-    summaries: list[ClusterSummaryData] = []
-    for cluster_id in sorted(clusters):
-        members = _sort_cluster_members(clusters[cluster_id])
-        summaries.append(
-            ClusterSummaryData(
-                cluster_id=cluster_id,
-                size=len(members),
-            )
-        )
-
+    sizes = qdrant_service.get_cluster_sizes()
+    summaries = [
+        ClusterSummaryData(cluster_id=cluster_id, size=size)
+        for cluster_id, size in sorted(sizes.items())
+    ]
     return ClusterCatalogData(
         status="ready",
         total_clusters=len(summaries),

@@ -88,6 +88,14 @@ def ensure_collection() -> None:
             settings.collection_name,
         )
 
+    # Integer index on cluster_id: needed for facet counts and makes
+    # per-cluster scrolls a filtered lookup instead of a full scan.
+    client.create_payload_index(
+        collection_name=settings.collection_name,
+        field_name="cluster_id",
+        field_schema=models.PayloadSchemaType.INTEGER,
+    )
+
 
 def file_point_id(file_path: str) -> str:
     """Generate a deterministic UUID from a file path."""
@@ -346,6 +354,35 @@ def delete_by_paths(paths: list[str]) -> int:
         points_selector=PointIdsList(points=[str(id) for id in ids]),
     )
     return len(paths)
+
+
+def get_cluster_sizes() -> dict[int, int]:
+    """Return the number of photos per cluster_id using a facet query."""
+    client = get_client()
+    response = client.facet(
+        collection_name=settings.collection_name,
+        key="cluster_id",
+        limit=settings.max_cluster_count,
+        exact=True,
+    )
+    return {int(hit.value): hit.count for hit in response.hits}
+
+
+def count_unclustered() -> int:
+    """Return the number of indexed photos without a cluster assignment."""
+    client = get_client()
+    result = client.count(
+        collection_name=settings.collection_name,
+        count_filter=models.Filter(
+            must=[
+                models.IsEmptyCondition(
+                    is_empty=models.PayloadField(key="cluster_id"),
+                )
+            ]
+        ),
+        exact=True,
+    )
+    return result.count
 
 
 def get_indexed_count() -> int:
