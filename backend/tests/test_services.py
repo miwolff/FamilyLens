@@ -406,9 +406,7 @@ class TestIndexRouter:
     @patch("app.services.clip_service._model", new=MagicMock())
     @patch("app.services.qdrant_service.get_client")
     @patch("app.services.clip_service.get_model")
-    def test_index_rejects_invalid_cluster_count(
-        self, mock_get_model, mock_get_client
-    ):
+    def test_index_rejects_invalid_cluster_count(self, mock_get_model, mock_get_client):
         """POST /api/index rejects cluster counts below 1."""
         from fastapi.testclient import TestClient
 
@@ -487,9 +485,7 @@ class TestSearchRouterFull:
     @patch("app.services.clip_service._model", new=MagicMock())
     @patch("app.services.qdrant_service.get_client")
     @patch("app.services.clip_service.get_model")
-    def test_search_whitespace_query_rejected(
-        self, mock_get_model, mock_get_client
-    ):
+    def test_search_whitespace_query_rejected(self, mock_get_model, mock_get_client):
         """POST /api/search rejects whitespace-only query strings."""
         from fastapi.testclient import TestClient
 
@@ -624,7 +620,6 @@ class TestQdrantServicePagination:
     """Tests for Qdrant service pagination logic."""
 
 
-
 class TestHealthEndpoint:
     """Tests for the dependency-aware health endpoint."""
 
@@ -669,6 +664,7 @@ class TestHealthEndpoint:
             "status": "degraded",
             "dependencies": {"clip": "up", "qdrant": "down"},
         }
+
     @patch("app.services.qdrant_service.get_client")
     def test_get_indexed_paths_paginates(self, mock_get):
         """get_indexed_paths scrolls through all pages until next_offset is None."""
@@ -943,9 +939,7 @@ class TestIndexRouterClustering:
             image_path.write_bytes(b"jpg")
             index_module._run_lock.acquire()
             try:
-                index_module._run_indexing(
-                    Path(tmpdir), cleanup=False, cluster_count=7
-                )
+                index_module._run_indexing(Path(tmpdir), cleanup=False, cluster_count=7)
             finally:
                 if index_module._run_lock.locked():
                     index_module._run_lock.release()
