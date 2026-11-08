@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from PIL import Image
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -39,8 +40,8 @@ def _make_default_progress_state() -> dict:
 
 # ---------------------------------------------------------------------------
 # Module-level progress state, shared between the background worker and the
-# status endpoint. Python's GIL ensures individual dict-key writes are
-# atomic for simple types, which is sufficient here.
+# status endpoint. All access goes through _progress_lock. This in-process
+# state assumes a single uvicorn worker, which is how the API is deployed.
 # ---------------------------------------------------------------------------
 _progress: dict = _make_default_progress_state()
 _progress_lock = threading.Lock()
@@ -155,13 +156,22 @@ def get_progress_snapshot() -> dict:
     return progress
 
 
+def _index_key(path: Path) -> str:
+    """Return the path stored in the index: relative to the photos root.
+
+    Keys must not depend on which folder an indexing run started from, so
+    that /api/photos can serve them and cleanup compares like with like.
+    """
+    return path.relative_to(PHOTOS_ROOT).as_posix()
+
+
 def _discover_images(folder: Path) -> list[Path]:
     """Recursively find all supported image files."""
-    images = []
-    for ext in SUPPORTED_EXTENSIONS:
-        images.extend(folder.rglob(f"*{ext}"))
-        images.extend(folder.rglob(f"*{ext.upper()}"))
-    return sorted(set(images))
+    return sorted(
+        path
+        for path in folder.rglob("*")
+        if path.suffix.lower() in SUPPORTED_EXTENSIONS and path.is_file()
+    )
 
 
 def _run_indexing(
@@ -205,9 +215,7 @@ def _run_indexing(
 
         already_indexed = qdrant_service.get_indexed_paths()
 
-        new_paths = [
-            p for p in image_paths if str(p.relative_to(folder)) not in already_indexed
-        ]
+        new_paths = [p for p in image_paths if _index_key(p) not in already_indexed]
         skipped = len(image_paths) - len(new_paths)
         _update_progress(
             {
@@ -219,8 +227,14 @@ def _run_indexing(
 
         removed = 0
         if cleanup:
-            disk_paths = {str(p.relative_to(folder)) for p in image_paths}
-            stale = already_indexed - disk_paths
+            disk_paths = {_index_key(p) for p in image_paths}
+            scope = _index_key(folder) if folder != PHOTOS_ROOT else ""
+            in_scope = {
+                path
+                for path in already_indexed
+                if not scope or path.startswith(f"{scope}/")
+            }
+            stale = in_scope - disk_paths
             if stale:
                 removed = qdrant_service.delete_by_paths(list(stale))
                 logger.info("Removed %d stale entries from index", removed)
@@ -229,34 +243,44 @@ def _run_indexing(
         indexed = 0
         errors = 0
         current = 0
-        batch: list[tuple[str, str, list[float]]] = []
+        batch_size = settings.index_batch_size
 
-        for img_path in new_paths:
+        for batch_start in range(0, len(new_paths), batch_size):
             if _cancel_event.is_set():
-                logger.info("Indexing cancelled at %d/%d", current, len(new_paths))
-                _update_progress(
-                    {
-                        "status": "cancelled",
-                        "current": current,
-                        "indexed": indexed,
-                        "errors": errors,
-                        "removed": removed,
-                        "elapsed_seconds": time.monotonic() - started_at,
-                        "eta_seconds": None,
-                    }
-                )
-                return
+                break
 
-            relative_path = str(img_path.relative_to(folder))
+            batch_paths = new_paths[batch_start : batch_start + batch_size]
+            loaded: list[tuple[Path, Image.Image]] = []
+            for img_path in batch_paths:
+                try:
+                    image = clip_service.load_image(
+                        img_path, max_side=clip_service.ENCODE_MAX_SIDE
+                    )
+                    loaded.append((img_path, image))
+                except Exception:
+                    logger.exception("Failed to load %s", img_path)
+                    errors += 1
+
             try:
-                embedding = clip_service.encode_image(img_path)
-                batch.append((relative_path, img_path.name, embedding))
-                indexed += 1
-            except Exception:
-                logger.exception("Failed to index %s", img_path)
-                errors += 1
+                if loaded:
+                    embeddings = clip_service.encode_images(
+                        [image for _, image in loaded]
+                    )
+                    qdrant_service.upsert_embeddings(
+                        [
+                            (_index_key(path), path.name, embedding)
+                            for (path, _), embedding in zip(
+                                loaded, embeddings, strict=True
+                            )
+                        ]
+                    )
+                    indexed += len(loaded)
+                    logger.info("Indexed batch of %d", len(loaded))
+            finally:
+                for _, image in loaded:
+                    image.close()
 
-            current += 1
+            current += len(batch_paths)
             elapsed = time.monotonic() - started_at
             rate = current / elapsed if elapsed > 0 else 0
             eta = (len(new_paths) - current) / rate if rate > 0 else None
@@ -270,17 +294,8 @@ def _run_indexing(
                 }
             )
 
-            if len(batch) >= settings.index_batch_size:
-                qdrant_service.upsert_embeddings(batch)
-                logger.info("Upserted batch of %d", len(batch))
-                batch = []
-
-        if batch:
-            qdrant_service.upsert_embeddings(batch)
-            logger.info("Upserted final batch of %d", len(batch))
-
         if _cancel_event.is_set():
-            logger.info("Indexing cancelled before clustering started")
+            logger.info("Indexing cancelled at %d/%d", current, len(new_paths))
             _update_progress(
                 {
                     "status": "cancelled",

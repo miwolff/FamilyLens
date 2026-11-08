@@ -47,19 +47,36 @@ def is_raw_image_path(image_path: Path) -> bool:
     return image_path.suffix.lower() in RAW_EXTENSIONS
 
 
-def load_image(image_path: Path) -> Image.Image:
-    """Load a supported image as an RGB PIL image."""
+# CLIP resizes inputs to 224 px, so decoding full-resolution photos only
+# wastes memory. Images loaded for encoding are capped at this size, which
+# keeps a batch of 32 photos around 100 MB instead of several GB.
+ENCODE_MAX_SIDE = 1024
+
+
+def load_image(image_path: Path, max_side: int | None = None) -> Image.Image:
+    """Load a supported image as an RGB PIL image.
+
+    If max_side is given, the image is downscaled (preserving aspect ratio)
+    so that neither side exceeds it.
+    """
     if is_raw_image_path(image_path):
         if rawpy is None:
             raise RuntimeError(
                 "RAW support is not available because rawpy is not installed"
             )
         with rawpy.imread(str(image_path)) as raw:
-            rgb_data = raw.postprocess()
-        return Image.fromarray(rgb_data).convert("RGB")
+            rgb_data = raw.postprocess(half_size=max_side is not None)
+        image = Image.fromarray(rgb_data).convert("RGB")
+    else:
+        with Image.open(image_path) as img:
+            if max_side is not None:
+                # JPEG only: decode at a reduced scale, much faster.
+                img.draft("RGB", (max_side, max_side))
+            image = img.convert("RGB")
 
-    with Image.open(image_path) as img:
-        return img.convert("RGB")
+    if max_side is not None:
+        image.thumbnail((max_side, max_side))
+    return image
 
 
 def render_preview(image_path: Path) -> bytes:
@@ -75,13 +92,28 @@ def render_preview(image_path: Path) -> bytes:
 
 def encode_image(image_path: Path) -> list[float]:
     """Encode a single image file to a CLIP embedding vector."""
-    model = get_model()
-    image = load_image(image_path)
+    image = load_image(image_path, max_side=ENCODE_MAX_SIDE)
     try:
-        embedding = model.encode(image, normalize_embeddings=True)
-        return embedding.tolist()
+        return encode_images([image])[0]
     finally:
         image.close()
+
+
+def encode_images(images: list[Image.Image]) -> list[list[float]]:
+    """Encode loaded images to CLIP embeddings in a single model call.
+
+    Batching lets the model use vectorised kernels, which is much faster
+    than encoding images one at a time.
+    """
+    if not images:
+        return []
+    model = get_model()
+    embeddings = model.encode(
+        images,
+        batch_size=len(images),
+        normalize_embeddings=True,
+    )
+    return embeddings.tolist()
 
 
 def encode_text(query: str) -> list[float]:
