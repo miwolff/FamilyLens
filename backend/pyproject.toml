@@ -29,3 +29,6 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.uv]
+exclude-newer = "7 days"
