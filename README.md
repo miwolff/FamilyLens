@@ -38,7 +38,7 @@ flowchart LR
 | ---------- | ----------------------------------------- | --------------------------------------------------- |
 | **web**    | React 19, Vite, nginx                     | Search and cluster UI, reverse proxy to the API      |
 | **api**    | FastAPI, sentence-transformers, scikit-learn | Indexing, search, clustering, photo serving       |
-| **qdrant** | Qdrant 1.13                               | Stores one 512-dim vector per photo plus metadata    |
+| **qdrant** | Qdrant 1.20                               | Stores one 512-dim vector per photo plus metadata    |
 
 **How it works**
 
