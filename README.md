@@ -1,6 +1,6 @@
 # FamilyLens
 
-Local-first intelligent photo search — query your personal photo library using natural language.
+Local-first intelligent photo search — query your personal photo library using natural language and browse visually similar image clusters.
 
 ## Architecture
 
@@ -9,13 +9,14 @@ Three Docker containers orchestrated via Docker Compose:
 | Service | Tech | Purpose |
 |---------|------|---------|
 | **qdrant** | Qdrant v1.13.2 | Vector database for image embeddings |
-| **api** | FastAPI + CLIP ViT-B/32 | Encodes images & queries, serves REST API |
-| **web** | React (Vite) + nginx | Search UI with photo gallery |
+| **api** | FastAPI + CLIP ViT-B/32 + MiniBatchKMeans | Encodes images, rebuilds clusters, serves REST API |
+| **web** | React (Vite) + nginx | Search UI with gallery and cluster browser |
 
 **How it works:**
 1. **Index**: CLIP encodes each photo into a 512-dim vector, stored in Qdrant
-2. **Search**: Your text query is encoded by CLIP's text encoder, then matched against image vectors via cosine similarity
-3. **Results**: Photos ranked by similarity score, displayed in a responsive grid
+2. **Cluster**: After each indexing run, the backend groups nearby image embeddings into visual clusters
+3. **Search**: Your text query is encoded by CLIP's text encoder, then matched against image vectors via cosine similarity
+4. **Browse**: Search results and cluster galleries are displayed in the web UI
 
 ## Quick Start
 
@@ -37,6 +38,11 @@ cp .env.example .env
 PHOTOS_DIR=/path/to/your/photos
 ```
 
+You can give up to 5 photo directories in the `.env` file that all will be mounted into child folders of the `photos` directory of the api container. See .env.example and docker-compose.yml.
+
+Optional backend tuning values such as cluster count, search limit, and log level
+are documented in `.env.example`.
+
 3. Start all services:
 
 ```bash
@@ -49,15 +55,21 @@ docker compose up --build
 
 6. Type a natural language query (e.g., "birthday party", "beach sunset") and hit **Search**
 
+7. Open **Clusters** to browse the largest visual groups in your library
+
 ### API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/index` | Index photos from the configured folder |
+| `GET` | `/api/index/status` | Get live indexing progress |
+| `POST` | `/api/index/cancel` | Cancel the active indexing run |
 | `POST` | `/api/search` | Search photos by text query |
+| `GET` | `/api/clusters` | List image clusters from largest to smallest |
+| `GET` | `/api/clusters/{cluster_id}` | Get one cluster gallery |
 | `GET` | `/api/photos/{path}` | Serve a photo file |
-| `GET` | `/api/status` | Get indexing status |
-| `GET` | `/health` | Health check |
+| `GET` | `/api/status` | Get indexed photo count and collection name |
+| `GET` | `/health` | Dependency-aware health check |
 
 **Example — search:**
 ```bash
@@ -69,6 +81,16 @@ curl -X POST http://localhost:8000/api/search \
 **Example — index:**
 ```bash
 curl -X POST http://localhost:8000/api/index
+```
+
+**Example — live indexing status:**
+```bash
+curl http://localhost:8000/api/index/status
+```
+
+**Example — clusters:**
+```bash
+curl http://localhost:8000/api/clusters
 ```
 
 ## Project Structure
@@ -85,8 +107,8 @@ FamilyLens/
 │   ├── app/
 │   │   ├── main.py            # FastAPI app, lifespan, endpoints
 │   │   ├── config.py          # Environment configuration
-│   │   ├── routers/           # API endpoints (index, search)
-│   │   └── services/          # CLIP & Qdrant clients
+│   │   ├── routers/           # API endpoints (index, search, clusters)
+│   │   └── services/          # CLIP, clustering, and Qdrant clients
 │   └── tests/
 ├── frontend/
 │   ├── Dockerfile              # React + nginx container
@@ -94,6 +116,7 @@ FamilyLens/
 │   ├── src/
 │   │   ├── App.jsx
 │   │   ├── components/         # SearchBar, PhotoGrid, etc.
+│   │   ├── pages/              # Search and cluster pages
 │   │   └── index.css
 │   ├── package.json
 │   ├── vite.config.js
@@ -145,20 +168,85 @@ Run tests (uses mocked ML dependencies, runs in ~4s):
 uv run pytest tests/ -v
 ```
 
+To upgrade all locked dependencies within the version constraints in
+`pyproject.toml`, run:
+
+```bash
+uv lock --upgrade
+uv sync
+```
+
+The `[tool.uv]` setting `exclude-newer = "7 days"` in `pyproject.toml`
+excludes package releases uploaded less than seven days ago. This updates
+`uv.lock` but does not change the declared dependency constraints.
+
 ### Frontend (React)
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
+
+To upgrade dependencies within the version ranges in `package.json`, run:
+
+```bash
+npm update
+```
+
+The project `.npmrc` sets `min-release-age=7`, so npm 11 or newer excludes
+package releases published less than seven days ago when resolving updates.
+This updates `package-lock.json` but does not change the declared version
+ranges. Use `npm ci` to install the versions recorded in the lockfile.
+
+### GitHub Actions
+
+The CI workflow runs on pushes to `main` and on pull requests. It syncs the
+backend dependencies with uv, runs pytest and Ruff, then installs the frontend
+dependencies with `npm ci` and builds the app.
+
+## Configuration
+
+Backend configuration is read from environment variables with the
+`FAMILYLENS_` prefix.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FAMILYLENS_CLUSTER_COUNT` | `12` | Default number of clusters to rebuild after indexing |
+| `FAMILYLENS_MAX_CLUSTER_COUNT` | `1000` | Upper bound the API accepts for client-supplied cluster counts |
+| `FAMILYLENS_SEARCH_DEFAULT_LIMIT` | `20` | Default search result limit |
+| `FAMILYLENS_LOG_LEVEL` | `INFO` | Backend log verbosity |
+
+The index API can optionally target a subfolder, but it is restricted to paths
+inside the configured `/photos` mount tree. Requests outside that root are
+rejected.
+
+## Health And Storage
+
+- `/health` now reports dependency status for the CLIP model and Qdrant. It
+  returns HTTP 200 only when both are ready, and HTTP 503 when the API is
+  degraded.
+- Docker Compose waits for Qdrant's `/readyz` endpoint before starting the API.
+- Indexed vectors are stored in the `qdrant_storage` Docker volume. If that
+  volume is removed, the index can be rebuilt from the source photo folders by
+  running indexing again.
 
 ## System Requirements
 
 - **Testing**: MacBook Air with 8 GB RAM (~2.5 GB used by the stack)
 - **Production**: PC with 8 GB GPU for ~30,000 photos
 
+## Clusters
+
+- Clusters are rebuilt automatically after each indexing run.
+- The cluster browser sorts clusters by size so the largest one appears first.
+- Each cluster view opens directly into the full gallery for that cluster, with the strongest matches shown first.
+
 ## Supported Formats
 
 JPEG (`.jpg`, `.jpeg`), PNG (`.png`), Adobe DNG (`.dng`), and Nikon
 NEF (`.nef`)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

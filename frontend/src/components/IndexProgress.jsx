@@ -11,9 +11,21 @@ function formatTime(seconds) {
 function IndexProgress({ progress, onCancel }) {
   if (!progress || progress.status === "idle") return null;
 
-  const { status, current, total, indexed, skipped, errors, removed, elapsed_seconds, eta_seconds, result } = progress;
+  const {
+    status,
+    stage,
+    current,
+    total,
+    skipped,
+    errors,
+    removed,
+    elapsed_seconds,
+    eta_seconds,
+    cluster_error,
+    result,
+  } = progress;
 
-  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  const pct = total > 0 ? Math.round((current / total) * 100) : stage === "clustering" ? 100 : 0;
   const elapsed = formatTime(elapsed_seconds);
   const eta = formatTime(eta_seconds);
 
@@ -24,7 +36,9 @@ function IndexProgress({ progress, onCancel }) {
   const isError = status === "error";
 
   const statusLabel = isRunning
-    ? "Indexing photos…"
+    ? stage === "clustering"
+      ? "Building clusters…"
+      : null
     : isCancelling
     ? "Cancelling…"
     : isComplete
@@ -33,61 +47,81 @@ function IndexProgress({ progress, onCancel }) {
     ? "Indexing cancelled"
     : "Indexing failed";
 
-  return (
-    <div className={`index-progress index-progress--${status}`}>
-      <div className="index-progress-header">
-        <span className="index-progress-title">{statusLabel}</span>
+  const summary = [];
+  if (total > 0 && (isRunning || isCancelling)) {
+    summary.push(`${current}/${total}`);
+    summary.push(`${pct}%`);
+  } else if (stage === "clustering" && (isRunning || isCancelling)) {
+    summary.push("100%");
+  }
 
-        {(isRunning || isCancelling) && (
-          <button
-            className="btn btn-cancel"
-            onClick={onCancel}
-            disabled={isCancelling}
-          >
-            {isCancelling ? "Cancelling…" : "Cancel"}
-          </button>
+  if (elapsed) {
+    summary.push(elapsed);
+  }
+  if (eta && isRunning) {
+    summary.push(`${eta} left`);
+  }
+  if (isComplete && result) {
+    summary.push(`${result.total_in_collection} total`);
+  }
+
+  const metrics = [];
+  if (skipped > 0 || isComplete) {
+    metrics.push(`${skipped} skipped`);
+  }
+  if (removed > 0) {
+    metrics.push(`${removed} removed`);
+  }
+  if (errors > 0 || isError) {
+    metrics.push(`${errors} errors`);
+  }
+  if ((isRunning || isCancelling) && total === 0) {
+    metrics.push("Discovering files");
+  }
+  if (stage === "clustering") {
+    metrics.push("Updating clusters");
+  }
+  if (cluster_error) {
+    metrics.push("Clusters unavailable");
+  }
+
+  const progressLabel = statusLabel || "Indexing status";
+
+  return (
+    <div
+      className={`index-progress index-progress--${status}`}
+      role="status"
+      aria-live="polite"
+      aria-label={progressLabel}
+    >
+      <div className="index-progress-main">
+        {statusLabel && (
+          <span className="index-progress-title">{statusLabel}</span>
+        )}
+        {summary.length > 0 && (
+          <span className="index-progress-summary">{summary.join(" · ")}</span>
         )}
       </div>
 
-      {total > 0 && (
-        <>
-          <div className="index-progress-bar-wrapper">
-            <div
-              className="index-progress-bar-fill"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <div className="index-progress-timing">
-            <span>{current} / {total} files — {pct}%</span>
-            <span className="index-progress-time">
-              {elapsed && `Elapsed: ${elapsed}`}
-              {eta && isRunning && ` · ~${eta} remaining`}
-            </span>
-          </div>
-        </>
-      )}
-
-      {total === 0 && (isRunning || isCancelling) && (
-        <div className="index-progress-timing">
-          <span>Discovering files…</span>
+      {metrics.length > 0 && (
+        <div className="index-progress-counts">
+          {metrics.map((metric) => (
+            <span key={metric}>{metric}</span>
+          ))}
         </div>
       )}
 
-      <div className="index-progress-counts">
-        <span>{indexed} indexed</span>
-        <span>{skipped} skipped</span>
-        {removed > 0 && (
-          <span className="index-progress-removed">{removed} removed</span>
-        )}
-        {errors > 0 && (
-          <span className="index-progress-errors">{errors} errors</span>
-        )}
-        {isComplete && result && (
-          <span className="index-progress-total">
-            {result.total_in_collection} total in library
-          </span>
-        )}
-      </div>
+      {(isRunning || isCancelling) && (
+        <button
+          type="button"
+          className="btn btn-cancel"
+          onClick={onCancel}
+          disabled={isCancelling}
+          aria-label={isCancelling ? "Cancelling indexing" : "Cancel indexing"}
+        >
+          {isCancelling ? "Cancelling…" : "Cancel"}
+        </button>
+      )}
     </div>
   );
 }
@@ -97,6 +131,7 @@ export default IndexProgress;
 IndexProgress.propTypes = {
   progress: PropTypes.shape({
     status: PropTypes.string.isRequired,
+    stage: PropTypes.string,
     current: PropTypes.number,
     total: PropTypes.number,
     indexed: PropTypes.number,
@@ -105,8 +140,10 @@ IndexProgress.propTypes = {
     removed: PropTypes.number,
     elapsed_seconds: PropTypes.number,
     eta_seconds: PropTypes.number,
+    cluster_error: PropTypes.string,
     result: PropTypes.shape({
       total_in_collection: PropTypes.number,
+      total_clusters: PropTypes.number,
     }),
   }).isRequired,
   onCancel: PropTypes.func.isRequired,

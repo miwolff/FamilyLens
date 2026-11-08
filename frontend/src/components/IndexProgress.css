@@ -1,128 +1,151 @@
 .index-progress {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 16px 20px;
-  margin: 12px auto;
-  max-width: 700px;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+  min-width: 100%;
+  height: var(--header-control-height, 2.45rem);
+  white-space: nowrap;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(239, 246, 255, 0.78));
+  border: 1px solid rgba(191, 219, 254, 0.85);
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.82rem;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .index-progress--complete {
-  border-color: #28a745;
-  background: #f0fff4;
+  border-color: rgba(16, 185, 129, 0.32);
+  background: linear-gradient(180deg, rgba(236, 253, 245, 0.96), rgba(209, 250, 229, 0.76));
 }
 
 .index-progress--error {
-  border-color: #dc3545;
-  background: #fff5f5;
+  border-color: rgba(239, 68, 68, 0.28);
+  background: linear-gradient(180deg, rgba(254, 242, 242, 0.98), rgba(254, 226, 226, 0.74));
 }
 
 .index-progress--cancelled {
-  border-color: #6c757d;
-  background: #f8f9fa;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.72));
 }
 
-.index-progress-header {
+.index-progress-main {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .index-progress-title {
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.index-progress-summary {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .index-progress--complete .index-progress-title {
-  color: #28a745;
+  color: #047857;
 }
 
 .index-progress--error .index-progress-title {
-  color: #dc3545;
+  color: #b91c1c;
 }
 
 .index-progress--cancelled .index-progress-title {
-  color: #6c757d;
-}
-
-.index-progress-bar-wrapper {
-  width: 100%;
-  height: 8px;
-  background: #dee2e6;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.index-progress-bar-fill {
-  height: 100%;
-  background: #007bff;
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-.index-progress--complete .index-progress-bar-fill {
-  background: #28a745;
-}
-
-.index-progress--cancelled .index-progress-bar-fill {
-  background: #6c757d;
-}
-
-.index-progress-timing {
-  display: flex;
-  justify-content: space-between;
-  color: #555;
-  margin-bottom: 8px;
-  font-variant-numeric: tabular-nums;
-}
-
-.index-progress-time {
-  color: #888;
+  color: var(--color-muted);
 }
 
 .index-progress-counts {
   display: flex;
-  gap: 16px;
-  color: #666;
-  font-size: 13px;
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  flex: 0 0 auto;
+}
+
+.index-progress-counts span {
+  padding: 0.22rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(191, 219, 254, 0.52);
 }
 
 .index-progress-errors {
-  color: #dc3545;
+  color: #b91c1c;
   font-weight: 600;
 }
 
 .index-progress-removed {
-  color: #f59e0b;
+  color: #b45309;
   font-weight: 600;
 }
 
 .index-progress-total {
-  margin-left: auto;
-  color: #28a745;
+  color: #047857;
   font-weight: 600;
 }
 
 .btn-cancel {
-  padding: 4px 12px;
-  font-size: 13px;
-  background: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
-  border-radius: 4px;
+  height: calc(var(--header-control-height, 2.45rem) - 0.75rem);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  padding: 0 0.78rem;
+  font-size: 0.73rem;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.76);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.34);
+  border-radius: 999px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .btn-cancel:hover:not(:disabled) {
-  background: #dc3545;
+  background: #ef4444;
   color: #fff;
+}
+
+.btn-cancel:focus-visible {
+  outline: 3px solid rgba(239, 68, 68, 0.2);
+  outline-offset: 2px;
 }
 
 .btn-cancel:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .index-progress {
+    min-width: 0;
+    width: 100%;
+    height: auto;
+    padding: 0.35rem 0.5rem;
+    flex-wrap: wrap;
+    white-space: normal;
+    align-items: flex-start;
+  }
+
+  .index-progress-main {
+    width: 100%;
+  }
+
+  .index-progress-counts {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .btn-cancel {
+    margin-left: auto;
+  }
 }

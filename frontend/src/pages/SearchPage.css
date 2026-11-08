@@ -1,0 +1,23 @@
+.search-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.search-page-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.search-page-summary .message {
+  flex: 1 1 22rem;
+}
+
+@media (max-width: 720px) {
+  .search-page-summary {
+    flex-direction: column;
+  }
+}

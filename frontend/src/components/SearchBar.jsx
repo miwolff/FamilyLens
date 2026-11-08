@@ -2,7 +2,7 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import "./SearchBar.css";
 
-function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupChange }) {
+function SearchBar({ onSearch, loading }) {
   const [input, setInput] = useState("");
 
   const handleSubmit = (e) => {
@@ -15,11 +15,13 @@ function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupCha
       <input
         type="text"
         className="search-input"
-        placeholder='Search photos... (e.g. "birthday party", "beach sunset")'
+        aria-label="Search the photo library"
+        placeholder='Try "birthday party" or "grandma at the lake"'
         value={input}
         onChange={(e) => setInput(e.target.value)}
         disabled={loading}
       />
+
       <button
         type="submit"
         className="btn btn-search"
@@ -27,23 +29,6 @@ function SearchBar({ onSearch, onIndex, loading, indexing, cleanup, onCleanupCha
       >
         {loading ? "Searching..." : "Search"}
       </button>
-      <button
-        type="button"
-        className="btn btn-index"
-        onClick={onIndex}
-        disabled={indexing}
-      >
-        {indexing ? "Indexing..." : "Index Photos"}
-      </button>
-      <label className="cleanup-label">
-        <input
-          type="checkbox"
-          checked={cleanup}
-          onChange={(e) => onCleanupChange(e.target.checked)}
-          disabled={indexing}
-        />
-        Remove deleted files from index
-      </label>
     </form>
   );
 }
@@ -52,9 +37,5 @@ export default SearchBar;
 
 SearchBar.propTypes = {
   onSearch: PropTypes.func.isRequired,
-  onIndex: PropTypes.func.isRequired,
   loading: PropTypes.bool.isRequired,
-  indexing: PropTypes.bool.isRequired,
-  cleanup: PropTypes.bool.isRequired,
-  onCleanupChange: PropTypes.func.isRequired,
 };

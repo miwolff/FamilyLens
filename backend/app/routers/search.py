@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import settings
 from app.services import clip_service, qdrant_service
@@ -18,6 +18,15 @@ class SearchRequest(BaseModel):
 
     query: str = Field(..., min_length=1, max_length=500)
     limit: int = Field(default=settings.search_default_limit, ge=1, le=100)
+
+    @field_validator("query")
+    @classmethod
+    def validate_query(cls, value: str) -> str:
+        """Reject empty or whitespace-only search strings."""
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Query must contain visible characters")
+        return stripped
 
 
 class SearchResult(BaseModel):

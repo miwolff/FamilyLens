@@ -1,15 +1,18 @@
 [project]
 name = "familylens"
-version = "0.1.0"
+version = "0.2.0"
 description = "FamilyLens is a local-first intelligent photo search application that allows users to search their personal photo library using natural language queries."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.0",
+    "numpy>=2.3.0",
     "pillow>=11.0.0",
     "pydantic-settings>=2.6.0",
     "qdrant-client>=1.12.0",
     "rawpy>=0.24.0",
+    "scikit-learn>=1.8.0",
     "sentence-transformers>=3.3.0",
     "torch>=2.4.0",
     "uvicorn[standard]>=0.30.0",
@@ -27,3 +30,6 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.uv]
+exclude-newer = "7 days"

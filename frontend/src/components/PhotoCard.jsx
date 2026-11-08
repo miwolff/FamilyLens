@@ -6,21 +6,21 @@ function PhotoCard({ result }) {
   const imageUrl =
     "/api/photos/" +
     result.file_path.split("/").map(encodeURIComponent).join("/");
+  const imageAlt = result.filename
+    ? `Photo result ${result.filename}`
+    : "Photo result";
 
   return (
-    <div className="photo-card">
+    <div className="photo-card" title={result.file_path}>
       <div className="photo-wrapper">
         <img
           src={imageUrl}
-          alt={result.filename}
+          alt={imageAlt}
           className="photo-img"
           loading="lazy"
         />
-        <span className="score-badge">{scorePercent}%</span>
-      </div>
-      <div className="photo-info">
-        <span className="photo-filename" title={result.file_path}>
-          {result.filename}
+        <span className="score-badge" aria-label={`${scorePercent}% match`}>
+          {scorePercent}%
         </span>
       </div>
     </div>

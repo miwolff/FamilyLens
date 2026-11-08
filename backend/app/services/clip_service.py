@@ -20,6 +20,11 @@ SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", *RAW_EXTENSIONS}
 _model: SentenceTransformer | None = None
 
 
+def is_model_loaded() -> bool:
+    """Return whether the CLIP model is loaded in memory."""
+    return _model is not None
+
+
 def load_model() -> SentenceTransformer:
     """Load the CLIP model into memory (singleton)."""
     global _model

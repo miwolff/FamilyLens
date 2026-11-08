@@ -12,6 +12,8 @@ wheels/
 # Environment variables
 .env
 
+node_modules
+
 # Local photo files for testing
 *.jpg
 *.jpeg
@@ -21,3 +23,5 @@ wheels/
 *.PNG
 *.dng
 *.NEF
+
+.DS_Store

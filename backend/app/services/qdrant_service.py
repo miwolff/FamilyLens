@@ -1,8 +1,10 @@
 import hashlib
 import logging
 import uuid
+from collections.abc import Iterable
+from dataclasses import dataclass
 
-from qdrant_client import QdrantClient
+from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
     Distance,
     PointIdsList,
@@ -15,6 +17,40 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 _client: QdrantClient | None = None
+
+
+def _get_required_payload_string(
+    payload: dict,
+    key: str,
+    *,
+    record_id: str | int,
+) -> str:
+    """Return a non-empty string payload field or raise ValueError."""
+    value = payload.get(key)
+    if isinstance(value, str) and value:
+        return value
+    raise ValueError(f"Record {record_id!s} is missing a valid '{key}' payload field")
+
+
+@dataclass(slots=True)
+class IndexedPoint:
+    """Indexed photo record loaded from Qdrant."""
+
+    point_id: str
+    file_path: str
+    filename: str
+    vector: list[float] | None = None
+    cluster_id: int | None = None
+    cluster_similarity: float | None = None
+
+
+@dataclass(slots=True)
+class ClusterPayloadUpdate:
+    """Cluster payload update for a single indexed point."""
+
+    point_id: str
+    cluster_id: int
+    cluster_similarity: float
 
 
 def get_client() -> QdrantClient:
@@ -59,6 +95,53 @@ def file_point_id(file_path: str) -> str:
     return str(uuid.UUID(bytes=digest[:16]))
 
 
+def _record_to_indexed_point(
+    record: models.Record,
+    *,
+    with_vectors: bool,
+) -> IndexedPoint:
+    """Convert a Qdrant record into an IndexedPoint."""
+    payload = record.payload
+    if not payload:
+        raise ValueError(f"Record {record.id!s} has no payload")
+
+    raw_vector = record.vector if with_vectors else None
+    if isinstance(raw_vector, dict):
+        raw_vector = next(iter(raw_vector.values()), None)
+
+    file_path = _get_required_payload_string(
+        payload,
+        "file_path",
+        record_id=record.id,
+    )
+    filename = _get_required_payload_string(
+        payload,
+        "filename",
+        record_id=record.id,
+    )
+    cluster_id = payload.get("cluster_id")
+    cluster_similarity = payload.get("cluster_similarity")
+    return IndexedPoint(
+        point_id=str(record.id),
+        file_path=file_path,
+        filename=filename,
+        vector=list(raw_vector) if raw_vector is not None else None,
+        cluster_id=int(cluster_id) if cluster_id is not None else None,
+        cluster_similarity=(
+            float(cluster_similarity) if cluster_similarity is not None else None
+        ),
+    )
+
+
+def _chunked(
+    items: list[ClusterPayloadUpdate],
+    chunk_size: int,
+) -> Iterable[list[ClusterPayloadUpdate]]:
+    """Yield lists of updates in fixed-size chunks."""
+    for start in range(0, len(items), chunk_size):
+        yield items[start : start + chunk_size]
+
+
 def get_indexed_paths() -> set[str]:
     """Return the set of already-indexed file paths."""
     client = get_client()
@@ -74,12 +157,99 @@ def get_indexed_paths() -> set[str]:
         )
         points, next_offset = results
         for point in points:
-            if point.payload and "file_path" in point.payload:
-                indexed.add(point.payload["file_path"])
+            payload = point.payload or {}
+            file_path = payload.get("file_path")
+            if isinstance(file_path, str) and file_path:
+                indexed.add(file_path)
+            elif payload:
+                logger.warning(
+                    "Skipping malformed indexed path payload for point %s",
+                    point.id,
+                )
         if next_offset is None:
             break
         offset = next_offset
     return indexed
+
+
+def scroll_indexed_points(
+    *,
+    with_vectors: bool = False,
+    cluster_id: int | None = None,
+) -> list[IndexedPoint]:
+    """Scroll indexed points from Qdrant, optionally filtered by cluster."""
+    client = get_client()
+    points: list[IndexedPoint] = []
+    offset = None
+    scroll_filter = None
+
+    if cluster_id is not None:
+        scroll_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="cluster_id",
+                    match=models.MatchValue(value=cluster_id),
+                )
+            ]
+        )
+
+    while True:
+        records, next_offset = client.scroll(
+            collection_name=settings.collection_name,
+            scroll_filter=scroll_filter,
+            limit=256,
+            offset=offset,
+            with_payload=True,
+            with_vectors=with_vectors,
+        )
+        for record in records:
+            try:
+                points.append(
+                    _record_to_indexed_point(
+                        record,
+                        with_vectors=with_vectors,
+                    )
+                )
+            except ValueError as exc:
+                logger.warning("Skipping malformed record from Qdrant: %s", exc)
+        if next_offset is None:
+            break
+        offset = next_offset
+
+    return points
+
+
+def update_cluster_payloads(updates: list[ClusterPayloadUpdate]) -> None:
+    """Persist cluster metadata for indexed points in batched writes."""
+    if not updates:
+        return
+
+    client = get_client()
+    for batch in _chunked(updates, settings.cluster_payload_batch_size):
+        operations = [
+            models.SetPayloadOperation(
+                set_payload=models.SetPayload(
+                    payload={
+                        "cluster_id": update.cluster_id,
+                        "cluster_similarity": update.cluster_similarity,
+                    },
+                    points=[update.point_id],
+                )
+            )
+            for update in batch
+        ]
+        operations.append(
+            models.DeletePayloadOperation(
+                delete_payload=models.DeletePayload(
+                    keys=["cluster_representative_rank"],
+                    points=[update.point_id for update in batch],
+                )
+            )
+        )
+        client.batch_update_points(
+            collection_name=settings.collection_name,
+            update_operations=operations,
+        )
 
 
 def upsert_embeddings(
@@ -120,14 +290,46 @@ def search(query_vector: list[float], limit: int) -> list[dict]:
         limit=limit,
         with_payload=True,
     )
-    return [
-        {
-            "file_path": hit.payload.get("file_path", "") if hit.payload else "",
-            "filename": hit.payload.get("filename", "") if hit.payload else "",
-            "score": hit.score,
-        }
-        for hit in results.points
-    ]
+    formatted_results: list[dict] = []
+    for hit in results.points:
+        payload = hit.payload
+        if not payload:
+            logger.warning(
+                "Skipping search result %s with missing payload",
+                hit.id,
+            )
+            continue
+
+        try:
+            file_path = _get_required_payload_string(
+                payload,
+                "file_path",
+                record_id=hit.id,
+            )
+            filename = _get_required_payload_string(
+                payload,
+                "filename",
+                record_id=hit.id,
+            )
+        except ValueError as exc:
+            logger.warning("Skipping malformed search result: %s", exc)
+            continue
+
+        formatted_results.append(
+            {
+                "file_path": file_path,
+                "filename": filename,
+                "score": hit.score,
+            }
+        )
+    return formatted_results
+
+
+def check_health() -> bool:
+    """Return whether the Qdrant collection is reachable."""
+    client = get_client()
+    client.get_collection(settings.collection_name)
+    return True
 
 
 def delete_by_paths(paths: list[str]) -> int:
