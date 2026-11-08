@@ -10,8 +10,8 @@ Usage:
 Environment variables:
     FAMILYLENS_CLIP_MODEL_NAME: Name of the CLIP model to download
                                  (default: clip-ViT-B-32)
-    TRANSFORMERS_CACHE: Cache directory for HuggingFace models
-                       (default: /app/.cache)
+    HF_HOME: Cache directory for Hugging Face models
+             (default: /app/.cache)
 """
 
 import logging
@@ -41,7 +41,7 @@ def main() -> int:
     )
 
     # Get cache directory
-    cache_dir = os.getenv("TRANSFORMERS_CACHE", "/app/.cache")
+    cache_dir = os.getenv("HF_HOME", "/app/.cache")
 
     logger.info("Starting CLIP model download")
     logger.info("Model: %s", model_name)
