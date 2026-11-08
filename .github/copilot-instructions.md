@@ -31,7 +31,7 @@ See [docs/user_requirements.md](../docs/user_requirements.md) for detailed user 
 - Use **PascalCase** for class names
 - Use **4 spaces** for indentation
 - Write docstrings for all public functions and classes
-- Keep lines under **80 characters** when possible
+- Keep lines under **88 characters** (enforced by `ruff format`)
 - Use type hints for all function parameters and return types
 - Follow PEP 8 style guidelines for Python code
 

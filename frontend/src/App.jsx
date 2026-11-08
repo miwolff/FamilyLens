@@ -6,8 +6,6 @@ import ClustersPage from "./pages/ClustersPage";
 import SearchPage from "./pages/SearchPage";
 import "./App.css";
 
-const DEFAULT_CLUSTER_COUNT = 12;
-const MAX_CLUSTER_COUNT = 1000;
 const DEFAULT_POLL_DELAY_MS = 1000;
 const HIDDEN_POLL_DELAY_MS = 4000;
 const MAX_POLL_DELAY_MS = 8000;
@@ -15,7 +13,9 @@ const MAX_POLL_DELAY_MS = 8000;
 function App() {
   const [progress, setProgress] = useState({ status: "idle", stage: "idle" });
   const [cleanup, setCleanup] = useState(false);
-  const [clusterCount, setClusterCount] = useState(String(DEFAULT_CLUSTER_COUNT));
+  // Cluster count default and limit come from the backend settings.
+  const [clusterCount, setClusterCount] = useState("");
+  const [maxClusterCount, setMaxClusterCount] = useState(null);
   const [indexMessage, setIndexMessage] = useState("");
   const [clusterCatalogVersion, setClusterCatalogVersion] = useState(0);
   const pollingRef = useRef(null);
@@ -100,7 +100,19 @@ function App() {
       }
     };
 
+    const loadLimits = async () => {
+      try {
+        const data = await requestJson("/api/status");
+        if (Number.isInteger(data.max_cluster_count)) {
+          setMaxClusterCount(data.max_cluster_count);
+        }
+      } catch {
+        // The backend validates the cluster count, so this is optional.
+      }
+    };
+
     void loadStatus();
+    void loadLimits();
     return stopPolling;
   }, []);
 
@@ -148,8 +160,8 @@ function App() {
       setIndexMessage("Cluster count must be at least 1.");
       return;
     }
-    if (parsedClusterCount > MAX_CLUSTER_COUNT) {
-      setIndexMessage(`Cluster count must be ${MAX_CLUSTER_COUNT} or less.`);
+    if (maxClusterCount != null && parsedClusterCount > maxClusterCount) {
+      setIndexMessage(`Cluster count must be ${maxClusterCount} or less.`);
       return;
     }
 
@@ -267,7 +279,7 @@ function App() {
               id="cluster-count-input"
               type="number"
               min="1"
-              max={MAX_CLUSTER_COUNT}
+              max={maxClusterCount ?? undefined}
               step="1"
               inputMode="numeric"
               className="app-cluster-count-input"

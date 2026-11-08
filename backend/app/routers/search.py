@@ -99,13 +99,15 @@ class StatusResponse(BaseModel):
 
     indexed_photos: int
     collection_name: str
+    max_cluster_count: int
 
 
 @router.get("/status", response_model=StatusResponse)
 def get_status() -> StatusResponse:
-    """Return current indexing status."""
+    """Return the indexed photo count and client-relevant limits."""
     count = qdrant_service.get_indexed_count()
     return StatusResponse(
         indexed_photos=count,
         collection_name=settings.collection_name,
+        max_cluster_count=settings.max_cluster_count,
     )
