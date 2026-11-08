@@ -23,3 +23,5 @@ node_modules
 *.PNG
 *.dng
 *.NEF
+
+.DS_Store

@@ -168,6 +168,18 @@ Run tests (uses mocked ML dependencies, runs in ~4s):
 uv run pytest tests/ -v
 ```
 
+To upgrade all locked dependencies within the version constraints in
+`pyproject.toml`, run:
+
+```bash
+uv lock --upgrade
+uv sync
+```
+
+The `[tool.uv]` setting `exclude-newer = "7 days"` in `pyproject.toml`
+excludes package releases uploaded less than seven days ago. This updates
+`uv.lock` but does not change the declared dependency constraints.
+
 ### Frontend (React)
 
 ```bash
@@ -175,6 +187,17 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+To upgrade dependencies within the version ranges in `package.json`, run:
+
+```bash
+npm update
+```
+
+The project `.npmrc` sets `min-release-age=7`, so npm 11 or newer excludes
+package releases published less than seven days ago when resolving updates.
+This updates `package-lock.json` but does not change the declared version
+ranges. Use `npm ci` to install the versions recorded in the lockfile.
 
 ## Configuration
 
