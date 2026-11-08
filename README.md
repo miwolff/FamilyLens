@@ -205,6 +205,19 @@ The CI workflow runs on pushes to `main` and on pull requests. It syncs the
 backend dependencies with uv, runs pytest and Ruff, then installs the frontend
 dependencies with `npm ci` and builds the app.
 
+## Security Notes
+
+Docker Compose publishes the Qdrant, API, and web ports on all host interfaces
+by default. The API and Qdrant have no authentication, and the API can search,
+serve photos, and start indexing. Keep the stack on a trusted local machine or
+network. For local-only access, bind the Compose ports to `127.0.0.1` (for
+example, `127.0.0.1:3000:80`, and likewise for ports `8000` and `6333`). Add
+appropriate access controls before allowing remote users to connect.
+
+The workspace setting in `.vscode/settings.json` auto-approves the `npm run
+build` terminal command in VS Code. Review this setting before trusting the
+workspace; remove it if you do not want that command auto-approved.
+
 ## Configuration
 
 Backend configuration is read from environment variables with the
