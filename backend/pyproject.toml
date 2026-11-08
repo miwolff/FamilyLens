@@ -3,6 +3,7 @@ name = "familylens"
 version = "0.2.0"
 description = "FamilyLens is a local-first intelligent photo search application that allows users to search their personal photo library using natural language queries."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.0",
