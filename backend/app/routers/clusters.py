@@ -83,8 +83,7 @@ def list_clusters() -> ClusterListResponse:
         return ClusterListResponse(
             status="unavailable",
             message=(
-                progress["cluster_error"]
-                or "Run indexing to generate image clusters."
+                progress["cluster_error"] or "Run indexing to generate image clusters."
             ),
             total_clusters=0,
             total_photos=catalog.total_photos,
@@ -121,8 +120,7 @@ def get_cluster(cluster_id: int) -> ClusterDetailResponse:
         raise HTTPException(
             status_code=409,
             detail=(
-                progress["cluster_error"]
-                or "Run indexing to generate image clusters."
+                progress["cluster_error"] or "Run indexing to generate image clusters."
             ),
         ) from None
     except KeyError:

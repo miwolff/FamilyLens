@@ -58,9 +58,7 @@ def health_check() -> dict:
         dependencies["qdrant"] = "down"
 
     status = (
-        "ok"
-        if all(value == "up" for value in dependencies.values())
-        else "degraded"
+        "ok" if all(value == "up" for value in dependencies.values()) else "degraded"
     )
     body = {
         "status": status,

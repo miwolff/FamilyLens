@@ -252,9 +252,7 @@ def get_cluster_detail(cluster_id: int) -> ClusterDetailData:
         total_clusters=catalog.total_clusters,
         previous_cluster_id=cluster_id - 1 if cluster_id > 0 else None,
         next_cluster_id=(
-            cluster_id + 1
-            if cluster_id + 1 < catalog.total_clusters
-            else None
+            cluster_id + 1 if cluster_id + 1 < catalog.total_clusters else None
         ),
         photos=[_to_photo(point) for point in members],
     )

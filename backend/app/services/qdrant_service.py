@@ -29,9 +29,7 @@ def _get_required_payload_string(
     value = payload.get(key)
     if isinstance(value, str) and value:
         return value
-    raise ValueError(
-        f"Record {record_id!s} is missing a valid '{key}' payload field"
-    )
+    raise ValueError(f"Record {record_id!s} is missing a valid '{key}' payload field")
 
 
 @dataclass(slots=True)
@@ -130,9 +128,7 @@ def _record_to_indexed_point(
         vector=list(raw_vector) if raw_vector is not None else None,
         cluster_id=int(cluster_id) if cluster_id is not None else None,
         cluster_similarity=(
-            float(cluster_similarity)
-            if cluster_similarity is not None
-            else None
+            float(cluster_similarity) if cluster_similarity is not None else None
         ),
     )
 

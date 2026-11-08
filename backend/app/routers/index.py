@@ -36,6 +36,7 @@ def _make_default_progress_state() -> dict:
         "result": None,
     }
 
+
 # ---------------------------------------------------------------------------
 # Module-level progress state, shared between the background worker and the
 # status endpoint. Python's GIL ensures individual dict-key writes are
@@ -150,9 +151,7 @@ def get_progress_snapshot() -> dict:
     with _progress_lock:
         progress = dict(_progress)
     if progress["status"] == "running" and progress["started_at"]:
-        progress["elapsed_seconds"] = (
-            time.monotonic() - progress["started_at"]
-        )
+        progress["elapsed_seconds"] = time.monotonic() - progress["started_at"]
     return progress
 
 

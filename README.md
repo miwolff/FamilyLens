@@ -199,6 +199,12 @@ package releases published less than seven days ago when resolving updates.
 This updates `package-lock.json` but does not change the declared version
 ranges. Use `npm ci` to install the versions recorded in the lockfile.
 
+### GitHub Actions
+
+The CI workflow runs on pushes to `main` and on pull requests. It syncs the
+backend dependencies with uv, runs pytest and Ruff, then installs the frontend
+dependencies with `npm ci` and builds the app.
+
 ## Configuration
 
 Backend configuration is read from environment variables with the
