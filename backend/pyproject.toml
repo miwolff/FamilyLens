@@ -15,6 +15,7 @@ dependencies = [
     "scikit-learn>=1.8.0",
     "sentence-transformers>=3.3.0",
     "torch>=2.4.0",
+    "torchvision>=0.19.0",
     "uvicorn[standard]>=0.30.0",
 ]
 
@@ -33,3 +34,15 @@ select = ["E", "F", "I"]
 
 [tool.uv]
 exclude-newer = "7 days"
+
+# Linux (the Docker image) uses CPU-only PyTorch wheels, which avoids
+# pulling several GB of CUDA libraries. macOS wheels from PyPI are already
+# CPU/MPS builds.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
