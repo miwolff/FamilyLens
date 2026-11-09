@@ -21,8 +21,16 @@ node_modules
 *.JPEG
 *.png
 *.PNG
+# ...but keep documentation images
+!docs/*.png
 *.dng
 *.NEF
+
+# Photo folders: ignore everything inside data/, keep only the folder
+# structure (the .gitkeep placeholders)
+/data/**
+!/data/**/
+!/data/**/.gitkeep
 
 .DS_Store
 

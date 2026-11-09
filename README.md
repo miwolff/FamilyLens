@@ -3,12 +3,14 @@
 [![CI](https://github.com/miwolff/familylens/actions/workflows/ci.yml/badge.svg)](https://github.com/miwolff/familylens/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+![FamilyLens search](docs/screenshot_search.png)
+
 Search your own photo library in plain language, such as "birthday party",
 "beach from above" or "grandma at the lake", and browse groups of visually
-similar photos. Everything runs on your machine. Photos, embeddings and
+similar photos (clusters). Everything runs on your machine. Photos, embeddings and
 queries never leave it.
 
-<!-- Add a screenshot or short GIF here, e.g. ![FamilyLens search](docs/screenshot.png) -->
+![FamilyLens clusters](docs/screenshot_clusters.png)
 
 ## Features
 
@@ -57,10 +59,12 @@ flowchart LR
 - **CLIP ViT-B/32 via sentence-transformers.** One model embeds both images
   and text into a shared space, so search needs no captions, tags or labels.
   The B/32 variant runs acceptably on a laptop CPU.
-- **Qdrant instead of an in-process index.** Persistence, payload filtering
-  and facet counts come for free. The cluster browser reads per-cluster counts
-  through a facet query on an indexed `cluster_id` field instead of scanning
-  every point.
+- **Qdrant as a separate vector database.** The vectors could also live in
+  the API's memory, but then saving them, looking up photos by cluster and
+  counting photos per cluster would all be custom code. Qdrant keeps the index
+  on disk across restarts and can filter and count by stored fields. For
+  example, the cluster picker asks Qdrant for the number of photos in each
+  cluster instead of loading every photo to count them.
 - **MiniBatchKMeans for clusters.** It is fast enough to recompute after every
   indexing run at ~30k photos, needs no extra service, and its centroid
   distance gives a natural "how typical is this photo" ordering inside each
